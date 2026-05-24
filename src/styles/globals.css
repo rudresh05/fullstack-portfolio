@@ -1,0 +1,60 @@
+@import "tailwindcss";
+@config "../../tailwind.config.ts";
+
+:root {
+  --foreground-rgb: 244, 244, 245;
+  --muted-rgb: 161, 161, 170;
+  --accent-rgb: 59, 130, 246;
+}
+
+html {
+  scroll-behavior: smooth;
+  cursor: default;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: #030303;
+  overflow-x: hidden;
+  font-family: var(--font-geist-sans), "Segoe UI", sans-serif;
+  position: relative;
+  isolation: isolate;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+::selection {
+  background: rgba(59, 130, 246, 0.28);
+  color: rgb(var(--foreground-rgb));
+}
+
+.heading-modern {
+  letter-spacing: -0.04em;
+}
+
+.glass {
+  background: rgba(24, 24, 27, 0.4);
+  backdrop-filter: blur(12px) saturate(130%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.glass-card {
+  background: rgba(24, 24, 27, 0.4);
+  backdrop-filter: blur(12px) saturate(130%);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.bg-grain {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.03;
+  background-image: url("https://grainy-gradients.vercel.app/noise.svg");
+}
