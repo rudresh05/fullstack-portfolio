@@ -33,7 +33,7 @@ function getFirebaseAdmin() {
         key = key.replace(/\\n/g, "\n").replace(/\r\n/g, "\n");
         
         // Remove any unintentional leading/trailing spaces on each line
-        key = key.split("\n").map(line => line.trim()).join("\n");
+        key = key.split("\n").map((line: string) => line.trim()).join("\n");
         
         // Ensure the header and footer are exactly right
         if (!key.includes("-----BEGIN PRIVATE KEY-----")) {

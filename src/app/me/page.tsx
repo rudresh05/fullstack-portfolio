@@ -7,7 +7,7 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { fetchSetting, subscribeSetting, type ForHerContent } from "@/lib/content-store";
 
-const EXPO_OUT = [0.16, 1, 0.3, 1];
+const EXPO_OUT = [0.16, 1, 0.3, 1] as const;
 
 
 const DEFAULT_CONTENT: ForHerContent = {
