@@ -32,7 +32,7 @@ function getFirebaseAdmin() {
         // Convert all variations of newline sequences (\n, \\n, \r\n) to real newlines
         key = key.replace(/\\n/g, "\n").replace(/\r\n/g, "\n");
         
-        // Remove any unintentional leading/trailing spaces on each line
+        // Remove any unintentional leading/trailing spaces on each line (explicitly typed for Vercel)
         key = key.split("\n").map((line: string) => line.trim()).join("\n");
         
         // Ensure the header and footer are exactly right
