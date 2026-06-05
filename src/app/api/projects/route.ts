@@ -3,8 +3,12 @@ import admin from 'firebase-admin';
 import { createClient } from '@supabase/supabase-js';
 
 if (!admin.apps.length && process.env.FIREBASE_SERVICE_ACCOUNT) {
-  const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-  admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
+  try {
+    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
+  } catch {
+    // A malformed local service-account value should not crash static builds.
+  }
 }
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
@@ -21,6 +25,7 @@ async function requireAdmin(req: Request) {
   const authHeader = req.headers.get('authorization') || '';
   const token = authHeader.replace(/^Bearer\s+/i, '');
   if (!token) return NextResponse.json({ error: 'Missing token' }, { status: 401 });
+  if (!admin.apps.length) return NextResponse.json({ error: 'Firebase admin is not configured.' }, { status: 500 });
 
   const decoded = await admin.auth().verifyIdToken(token);
   const adminEmail = (process.env.NEXT_PUBLIC_ADMIN_EMAIL || '').trim().toLowerCase();

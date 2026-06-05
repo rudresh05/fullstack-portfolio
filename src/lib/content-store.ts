@@ -10,6 +10,10 @@ export type ManagedProject = {
   link: string;
   imageUrl?: string;
   featured: boolean;
+  stars?: number;
+  forks?: number;
+  updatedAt?: string;
+  repoName?: string;
 };
 
 export type ManagedBlog = {
@@ -22,15 +26,37 @@ export type ManagedBlog = {
   readTime: string;
 };
 
+export type ManagedJournal = {
+  id: string;
+  date: string;
+  data: Record<string, string>;
+};
+
+export type ForHerContent = {
+  herName: string;
+  tagline: string;
+  storyHeading: string;
+  storyBody: string;
+  timeline: Array<{ date: string; title: string; desc: string }>;
+  moments: Array<{ title: string; text: string; img: string; caption: string; date: string }>;
+  letterDate: string;
+  letterBody: string[];
+  signature: string;
+  quotes: string[];
+  portraitUrl: string;
+};
+
 type ContentRecord = Record<string, unknown>;
 type RegistryCallback = (value: unknown) => void;
 
 const PROJECTS_KEY = "portfolio.projects.v1";
 const BLOGS_KEY = "portfolio.blogs.v1";
+const JOURNALS_KEY = "portfolio.journals.v1";
 const SETTINGS_KEY = "portfolio.settings.v1";
 const CONTENT_CHANGED_EVENT = "portfolio-content-changed";
 const PROJECTS_COLLECTION = "projects";
 const BLOGS_COLLECTION = "blogs";
+const JOURNALS_COLLECTION = "journals";
 
 export const slugify = (value: string) =>
   value
@@ -47,6 +73,10 @@ const defaultProjects: ManagedProject[] = PROJECTS.map((project, index) => ({
   link: project.link,
   imageUrl: project.imageUrl,
   featured: project.featured,
+  stars: project.stars,
+  forks: project.forks,
+  updatedAt: project.updatedAt,
+  repoName: project.repoName,
 }));
 
 const defaultBlogs: ManagedBlog[] = BLOG_POSTS.map((post, index) => ({
@@ -69,6 +99,11 @@ function saveLocalProjects(projects: ManagedProject[]) {
 function saveLocalBlogs(blogs: ManagedBlog[]) {
   if (!isBrowser()) return;
   window.localStorage.setItem(BLOGS_KEY, JSON.stringify(blogs));
+}
+
+function saveLocalJournals(journals: ManagedJournal[]) {
+  if (!isBrowser()) return;
+  window.localStorage.setItem(JOURNALS_KEY, JSON.stringify(journals));
 }
 
 function loadLocalSettings(): Record<string, unknown> {
@@ -161,6 +196,24 @@ export function saveBlogs(blogs: ManagedBlog[]) {
   saveLocalBlogs(blogs);
 }
 
+export function loadJournals(): ManagedJournal[] {
+  if (!isBrowser()) return [];
+
+  try {
+    const raw = window.localStorage.getItem(JOURNALS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed as ManagedJournal[];
+  } catch {
+    return [];
+  }
+}
+
+export function saveJournals(journals: ManagedJournal[]) {
+  saveLocalJournals(journals);
+}
+
 export function createId(value: string) {
   return `${slugify(value)}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -223,6 +276,32 @@ export async function fetchBlogs(): Promise<ManagedBlog[]> {
   }
 }
 
+export async function fetchJournals(): Promise<ManagedJournal[]> {
+  if (!isSupabaseConfigured) return loadJournals();
+
+  try {
+    const { data } = await contentRequest<{ data: unknown[] }>("/api/content?type=journals");
+    const journals = data.map(normalizeJournal);
+    saveLocalJournals(journals);
+    return journals;
+  } catch {
+    try {
+      const { data, error } = await supabase
+        .from(JOURNALS_COLLECTION)
+        .select("*")
+        .order("date", { ascending: false });
+
+      if (error || !data) return loadJournals();
+
+      const journals = data.map(normalizeJournal);
+      saveLocalJournals(journals);
+      return journals;
+    } catch {
+      return loadJournals();
+    }
+  }
+}
+
 function safeStringArray(value: unknown) {
   if (Array.isArray(value)) return value.map(String);
   if (typeof value !== "string") return [];
@@ -246,6 +325,10 @@ function normalizeProject(entry: unknown): ManagedProject {
     link: String(record.link ?? "#"),
     imageUrl: record.image_url ? String(record.image_url) : String(record.imageUrl ?? ""),
     featured: Boolean(record.featured),
+    stars: Number(record.stars ?? 0),
+    forks: Number(record.forks ?? 0),
+    updatedAt: record.updated_at ? String(record.updated_at) : String(record.updatedAt ?? ""),
+    repoName: record.repo_name ? String(record.repo_name) : String(record.repoName ?? ""),
   };
 }
 
@@ -260,6 +343,16 @@ function normalizeBlog(entry: unknown): ManagedBlog {
     content: String(record.content ?? record.excerpt ?? ""),
     date: String(record.date ?? ""),
     readTime: String(record.readTime ?? record.read_time ?? "5 min read"),
+  };
+}
+
+function normalizeJournal(entry: unknown): ManagedJournal {
+  const record = entry as ContentRecord;
+
+  return {
+    id: String(record.id),
+    date: String(record.date ?? ""),
+    data: (record.data as Record<string, string>) ?? {},
   };
 }
 
@@ -382,6 +475,65 @@ export function subscribeBlogs(callback: (items: ManagedBlog[]) => void) {
   };
 }
 
+export function subscribeJournals(callback: (items: ManagedJournal[]) => void) {
+  const handleLocalChange = (event: Event) => {
+    if ((event as CustomEvent<string>).detail === "journals") {
+      fetchJournals().then(callback).catch(() => callback(loadJournals()));
+    }
+  };
+
+  if (isBrowser()) window.addEventListener(CONTENT_CHANGED_EVENT, handleLocalChange);
+
+  if (!isSupabaseConfigured) {
+    callback(loadJournals());
+    return () => {
+      if (isBrowser()) window.removeEventListener(CONTENT_CHANGED_EVENT, handleLocalChange);
+    };
+  }
+
+  fetchJournals().then(callback).catch(() => callback(loadJournals()));
+
+  const registryKey = "journals";
+
+  if (!subscriptionRegistry.has(registryKey)) {
+    const callbacks = new Set<RegistryCallback>();
+    const channel = supabase.channel(`realtime:journals`);
+
+    channel.on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: JOURNALS_COLLECTION },
+      () => {
+        fetchJournals().then((items) => callbacks.forEach((cb) => cb(items))).catch(() => callbacks.forEach((cb) => cb(loadJournals())));
+      },
+    );
+
+    try {
+      channel.subscribe();
+    } catch {
+      // ignore
+    }
+
+    const poll = setInterval(() => {
+      fetchJournals().then((items) => callbacks.forEach((cb) => cb(items))).catch(() => {});
+    }, 15000) as unknown as number;
+
+    subscriptionRegistry.set(registryKey, { channel, callbacks, poll });
+  }
+
+  const entry = subscriptionRegistry.get(registryKey)!;
+  entry.callbacks.add(callback as RegistryCallback);
+
+  return () => {
+    if (isBrowser()) window.removeEventListener(CONTENT_CHANGED_EVENT, handleLocalChange);
+    entry.callbacks.delete(callback as RegistryCallback);
+    if (entry.callbacks.size === 0) {
+      clearInterval(entry.poll);
+      supabase.removeChannel(entry.channel);
+      subscriptionRegistry.delete(registryKey);
+    }
+  };
+}
+
 export async function addProject(project: Omit<ManagedProject, "id">) {
   if (!isSupabaseConfigured) {
     const localItem = { ...project, id: createId(project.title) };
@@ -414,6 +566,28 @@ export async function addBlog(blog: Omit<ManagedBlog, "id">) {
   notifyContentChanged("blogs");
 }
 
+export async function addJournal(journal: { date: string; data: Record<string, string> }) {
+  if (!isSupabaseConfigured) {
+    const existing = loadJournals();
+    const index = existing.findIndex((j) => j.date === journal.date);
+    const next = [...existing];
+    if (index >= 0) {
+      next[index] = { ...next[index], data: journal.data };
+    } else {
+      next.unshift({ id: createId("journal"), date: journal.date, data: journal.data });
+    }
+    saveLocalJournals(next);
+    notifyContentChanged("journals");
+    return;
+  }
+
+  await adminContentRequest({
+    method: "POST",
+    body: JSON.stringify({ type: "journals", journal }),
+  });
+  notifyContentChanged("journals");
+}
+
 export async function removeProject(id: string) {
   if (!isSupabaseConfigured) {
     const next = loadProjects().filter((item) => item.id !== id);
@@ -442,6 +616,21 @@ export async function removeBlog(id: string) {
     body: JSON.stringify({ type: "blogs", id }),
   });
   notifyContentChanged("blogs");
+}
+
+export async function removeJournal(id: string) {
+  if (!isSupabaseConfigured) {
+    const next = loadJournals().filter((item) => item.id !== id);
+    saveLocalJournals(next);
+    notifyContentChanged("journals");
+    return;
+  }
+
+  await adminContentRequest({
+    method: "DELETE",
+    body: JSON.stringify({ type: "journals", id }),
+  });
+  notifyContentChanged("journals");
 }
 
 export async function hasFirestoreContent() {
@@ -593,4 +782,3 @@ export async function saveSetting<T = unknown>(key: string, value: T) {
   saveLocalSetting(key, value);
   notifyContentChanged(`settings:${key}`);
 }
-

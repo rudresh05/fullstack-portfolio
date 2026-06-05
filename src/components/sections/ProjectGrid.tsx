@@ -1,20 +1,67 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { AnimatePresence, motion, useMotionTemplate, useMotionValue, useSpring } from "framer-motion";
-import { ArrowUpRight, GitFork, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { ArrowUpRight, CalendarDays, Code2, GitFork, Layers3, Star, X } from "lucide-react";
 
-import { subscribeProjects, type ManagedProject } from "@/lib/content-store";
+import { PROJECTS } from "@/constants";
+import { subscribeProjects, type ManagedProject, slugify } from "@/lib/content-store";
 import { cn } from "@/lib/utils";
 
 const EXPO_OUT: [number, number, number, number] = [0.16, 1, 0.3, 1];
+const GITHUB_REPOS_URL = "https://api.github.com/users/rudresh05/repos?per_page=100&sort=updated";
+
+type GitHubRepo = {
+  name: string;
+  html_url: string;
+  homepage?: string | null;
+  description?: string | null;
+  fork: boolean;
+  language?: string | null;
+  stargazers_count: number;
+  forks_count: number;
+  updated_at: string;
+  topics?: string[];
+};
+
+const curatedDescriptions: Record<string, string> = {
+  CampusCircle: "A campus community product focused on student collaboration, updates, and peer connections.",
+  "fullstack-portfolio": "A modern portfolio codebase built with a typed React stack and production-ready layout patterns.",
+  "rudresh05.github.io": "Personal GitHub Pages site for showcasing profile links, project work, and contact details.",
+  Tree_Data_Structure: "Java implementations and exercises for core tree traversal, recursion, and data-structure practice.",
+  Recursion: "A focused Java practice repository for recursion patterns, problem solving, and fundamentals.",
+  Learn_Kotlin_Basics: "Kotlin fundamentals and syntax practice for Android-ready application development.",
+};
+
+const languageTech: Record<string, string[]> = {
+  TypeScript: ["TypeScript", "React", "Next.js"],
+  JavaScript: ["JavaScript", "HTML", "CSS"],
+  Java: ["Java", "DSA", "Algorithms"],
+  Kotlin: ["Kotlin", "Android", "Mobile"],
+  Python: ["Python", "AI/ML", "Automation"],
+  HTML: ["HTML", "CSS", "JavaScript"],
+};
+
+const fallbackProjects: ManagedProject[] = PROJECTS.map((project, index) => ({
+  id: `fallback-${slugify(project.title)}-${index + 1}`,
+  title: project.title,
+  description: project.description,
+  tech: [...project.tech],
+  link: project.link,
+  imageUrl: project.imageUrl,
+  featured: project.featured,
+  stars: project.stars,
+  forks: project.forks,
+  updatedAt: project.updatedAt,
+  repoName: project.repoName,
+}));
 
 const container = {
   hidden: { opacity: 0, y: 24 },
   show: {
     opacity: 1,
     y: 0,
-    transition: { staggerChildren: 0.1, duration: 0.8, ease: EXPO_OUT },
+    transition: { staggerChildren: 0.08, duration: 0.8, ease: EXPO_OUT },
   },
 };
 
@@ -23,14 +70,82 @@ const item = {
   show: { opacity: 1, y: 0, transition: { duration: 0.65, ease: EXPO_OUT } },
 };
 
-function ProjectCard({ project, onOpen }: { project: ManagedProject; onOpen: (project: ManagedProject) => void }) {
-  const rotateX = useMotionValue(0);
-  const rotateY = useMotionValue(0);
-  const springX = useSpring(rotateX, { stiffness: 220, damping: 18 });
-  const springY = useSpring(rotateY, { stiffness: 220, damping: 18 });
-  const transform = useMotionTemplate`perspective(900px) rotateX(${springX}deg) rotateY(${springY}deg)`;
+function titleFromRepo(name: string) {
+  return name
+    .replace(/[-_]+/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase())
+    .replace(/\bGithub\b/g, "GitHub");
+}
 
-  const isGithubLink = project.link.includes("github.com");
+function formatDate(value?: string) {
+  if (!value) return "Recent";
+  return new Intl.DateTimeFormat("en", { month: "short", year: "numeric" }).format(new Date(value));
+}
+
+function getRepoName(project: ManagedProject) {
+  if (project.repoName) return project.repoName;
+  const match = project.link.match(/github\.com\/rudresh05\/([^/?#]+)/i);
+  return match?.[1] ?? project.title;
+}
+
+function mapRepoToProject(repo: GitHubRepo, index: number): ManagedProject {
+  const tech = repo.topics?.length ? repo.topics.map(titleFromRepo).slice(0, 4) : languageTech[repo.language ?? ""] ?? [repo.language ?? "Repository"];
+
+  return {
+    id: `github-${slugify(repo.name)}`,
+    title: titleFromRepo(repo.name),
+    description:
+      repo.description ??
+      curatedDescriptions[repo.name] ??
+      `${titleFromRepo(repo.name)} is a public GitHub project built around ${repo.language ?? "software"} practice and delivery.`,
+    tech,
+    link: repo.html_url,
+    featured: index < 2,
+    stars: repo.stargazers_count,
+    forks: repo.forks_count,
+    updatedAt: repo.updated_at,
+    repoName: repo.name,
+  };
+}
+
+function mergeProjects(baseProjects: ManagedProject[], githubProjects: ManagedProject[]) {
+  const byRepo = new Map<string, ManagedProject>();
+
+  [...baseProjects, ...githubProjects].forEach((project) => {
+    const key = getRepoName(project).toLowerCase();
+    const existing = byRepo.get(key);
+    byRepo.set(key, {
+      ...project,
+      ...existing,
+      description: existing?.description || project.description,
+      tech: existing?.tech?.length ? existing.tech : project.tech,
+      stars: project.stars ?? existing?.stars,
+      forks: project.forks ?? existing?.forks,
+      updatedAt: project.updatedAt ?? existing?.updatedAt,
+      repoName: project.repoName ?? existing?.repoName,
+    });
+  });
+
+  return Array.from(byRepo.values()).sort((a, b) => {
+    if (a.featured !== b.featured) return a.featured ? -1 : 1;
+    return new Date(b.updatedAt ?? 0).getTime() - new Date(a.updatedAt ?? 0).getTime();
+  });
+}
+
+async function fetchGithubProjects() {
+  const response = await fetch(GITHUB_REPOS_URL, {
+    headers: { Accept: "application/vnd.github+json" },
+  });
+
+  if (!response.ok) throw new Error("GitHub projects could not be loaded.");
+
+  const repos = (await response.json()) as GitHubRepo[];
+  return repos.filter((repo) => !repo.fork).map(mapRepoToProject);
+}
+
+function ProjectCard({ project, onOpen, index }: { project: ManagedProject; onOpen: (project: ManagedProject) => void; index: number }) {
+  const repoName = getRepoName(project);
+  const liveLink = project.link.includes("github.com") ? "" : project.link;
 
   return (
     <motion.article
@@ -44,71 +159,63 @@ function ProjectCard({ project, onOpen }: { project: ManagedProject; onOpen: (pr
           onOpen(project);
         }
       }}
-      whileHover={{ y: -5, scale: 1.005 }}
-      onMouseMove={(event) => {
-        const rect = event.currentTarget.getBoundingClientRect();
-        const px = (event.clientX - rect.left) / rect.width;
-        const py = (event.clientY - rect.top) / rect.height;
-        rotateY.set((px - 0.5) * 9);
-        rotateX.set((0.5 - py) * 9);
-      }}
-      onMouseLeave={() => {
-        rotateX.set(0);
-        rotateY.set(0);
-      }}
-      style={{ transform }}
-      className={cn(
-        "glass-card group relative cursor-pointer overflow-hidden rounded-2xl p-5 sm:p-6 transition-all duration-300 hover:border-white/10 hover:shadow-[0_16px_52px_-28px_rgba(59,130,246,0.55)]",
-        project.featured ? "md:col-span-8" : "md:col-span-4",
-      )}
+      whileHover={{ y: -6 }}
+      className={cn("panel group flex cursor-pointer flex-col rounded-lg p-5 transition sm:p-6", project.featured ? "md:col-span-7" : "md:col-span-5")}
     >
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-gradient-to-br from-blue-500/10 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-      />
-
-      <div className="relative z-10 flex h-full flex-col">
-        <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">
-          {project.featured ? "Featured" : "Project"}
-        </p>
-        <h3 className="heading-modern mt-2.5 text-lg font-semibold text-zinc-100 md:text-2xl">{project.title}</h3>
-        <p className="mt-2.5 text-sm leading-relaxed text-zinc-400">{project.description}</p>
-
-        {project.imageUrl ? (
-          <div className="mt-5 overflow-hidden rounded-xl border border-white/10 bg-zinc-950/60">
-            <img src={project.imageUrl} alt={`${project.title} screenshot`} className="aspect-video w-full object-cover transition duration-500 group-hover:scale-[1.03]" />
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-[var(--accent)] text-[#07110f]">
+            <Code2 className="h-5 w-5" />
           </div>
-        ) : null}
-
-        <div className="mt-5 flex flex-wrap gap-2">
-          {project.tech.map((stack) => (
-            <span key={stack} className="rounded-md border border-white/10 bg-zinc-900/50 px-2 py-0.5 text-[10px] text-zinc-300">
-              {stack}
-            </span>
-          ))}
+          <div className="min-w-0">
+            <p className="accent-text truncate text-[11px] font-bold uppercase tracking-[0.16em]">{project.featured ? "Featured build" : "Repository"}</p>
+            <h3 className="mt-1 text-2xl font-black leading-tight text-[var(--text)] sm:text-3xl">{project.title}</h3>
+          </div>
         </div>
+        <span className="rounded-md border border-[var(--line)] px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-[var(--muted)]">
+          {project.featured ? "Featured" : `0${index + 1}`}
+        </span>
+      </div>
 
-        <div className="mt-auto pt-7">
-          <div className="flex items-center gap-3 opacity-100 transition-all duration-300 md:opacity-0 md:group-hover:opacity-100">
-            <a
-              href={isGithubLink ? "#" : project.link}
-              target="_blank"
-              rel="noreferrer"
-              onClick={(event) => event.stopPropagation()}
-              className="inline-flex items-center gap-2 rounded-md border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-xs text-blue-400 transition-all hover:border-blue-400/50 hover:shadow-[0_0_16px_0_rgba(59,130,246,0.5)]"
-            >
+      <p className="muted-text mt-5 line-clamp-3 text-sm leading-7">{project.description}</p>
+
+      <div className="mt-6 grid grid-cols-3 gap-2 text-xs">
+        {[
+          { label: "Stars", value: project.stars ?? 0, icon: Star },
+          { label: "Forks", value: project.forks ?? 0, icon: GitFork },
+          { label: "Updated", value: formatDate(project.updatedAt), icon: CalendarDays },
+        ].map((stat) => {
+          const Icon = stat.icon;
+          return (
+            <div key={stat.label} className="rounded-md border border-[var(--line)] bg-[color-mix(in_srgb,var(--panel-strong)_62%,transparent)] px-3 py-3">
+              <span className="muted-text flex items-center gap-1.5">
+                <Icon className="h-3.5 w-3.5" /> {stat.label}
+              </span>
+              <strong className="mt-1 block truncate text-sm text-[var(--text)]">{stat.value}</strong>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="mt-5 flex flex-wrap gap-2">
+        {project.tech.slice(0, 5).map((stack) => (
+          <span key={stack} className="rounded-md border border-[var(--line)] px-2.5 py-1.5 text-[11px] font-semibold text-[var(--text)]">
+            {stack}
+          </span>
+        ))}
+      </div>
+
+      <div className="mt-auto flex flex-wrap items-center justify-between gap-3 pt-7">
+        <span className="muted-text truncate text-xs">rudresh05/{repoName}</span>
+        <div className="flex gap-2">
+          {liveLink ? (
+            <a href={liveLink} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()} className="btn-primary inline-flex items-center gap-2 rounded-md px-3 py-2 text-xs font-black">
               <ArrowUpRight className="h-4 w-4" /> Live
             </a>
-            <a
-              href={project.link}
-              target="_blank"
-              rel="noreferrer"
-              onClick={(event) => event.stopPropagation()}
-              className="inline-flex items-center gap-2 rounded-md border border-white/10 bg-zinc-900/50 px-3 py-2 text-xs text-zinc-100 transition-all hover:border-white/20 hover:shadow-[0_0_14px_0_rgba(255,255,255,0.2)]"
-            >
-              <GitFork className="h-4 w-4" /> GitHub
-            </a>
-          </div>
+          ) : null}
+          <a href={project.link} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()} className="btn-secondary inline-flex items-center gap-2 rounded-md px-3 py-2 text-xs font-black">
+            <Code2 className="h-4 w-4" /> Source
+          </a>
         </div>
       </div>
     </motion.article>
@@ -116,105 +223,117 @@ function ProjectCard({ project, onOpen }: { project: ManagedProject; onOpen: (pr
 }
 
 function ProjectModal({ project, onClose }: { project: ManagedProject; onClose: () => void }) {
-  const isGithubLink = project.link.includes("github.com");
+  const repoName = getRepoName(project);
 
   return (
-    <motion.div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-8 backdrop-blur-sm"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      onClick={onClose}
-    >
+    <motion.div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 px-4 py-8 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
       <motion.article
         initial={{ opacity: 0, y: 24, scale: 0.96 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 18, scale: 0.96 }}
         transition={{ duration: 0.28, ease: EXPO_OUT }}
         onClick={(event) => event.stopPropagation()}
-        className="w-full max-w-2xl rounded-2xl border border-white/10 bg-zinc-950 p-6 shadow-2xl sm:p-8"
+        className="panel-strong w-full max-w-2xl rounded-lg p-6 sm:p-8"
       >
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.24em] text-blue-500">{project.featured ? "Featured Project" : "Project"}</p>
-            <h3 className="heading-modern mt-3 text-3xl font-bold text-zinc-100">{project.title}</h3>
+            <p className="accent-text text-xs uppercase tracking-[0.24em]">GitHub Project</p>
+            <h3 className="mt-3 text-3xl font-bold text-[var(--text)]">{project.title}</h3>
+            <p className="muted-text mt-2 text-sm">rudresh05/{repoName}</p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close project details"
-            className="rounded-md border border-white/10 p-2 text-zinc-400 transition hover:border-white/20 hover:text-white"
-          >
+          <button type="button" onClick={onClose} aria-label="Close project details" className="rounded-md border border-[var(--line)] p-2 text-[var(--text)] transition hover:bg-[color-mix(in_srgb,var(--text)_7%,transparent)]">
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <p className="mt-5 text-sm leading-7 text-zinc-400">{project.description}</p>
-
-        {project.imageUrl ? (
-          <div className="mt-6 overflow-hidden rounded-xl border border-white/10 bg-zinc-900">
-            <img src={project.imageUrl} alt={`${project.title} screenshot`} className="aspect-video w-full object-cover" />
-          </div>
-        ) : null}
-
+        <p className="muted-text mt-5 text-sm leading-7">{project.description}</p>
         <div className="mt-6 flex flex-wrap gap-2">
           {project.tech.map((stack) => (
-            <span key={stack} className="rounded-md border border-white/10 bg-zinc-900/80 px-2 py-1 text-xs text-zinc-300">
+            <span key={stack} className="rounded-md border border-[var(--line)] px-2 py-1 text-xs text-[var(--text)]">
               {stack}
             </span>
           ))}
         </div>
 
-        <div className="mt-8 flex flex-wrap gap-3">
-          <a
-            href={isGithubLink ? "#" : project.link}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-2 rounded-md border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-sm text-blue-400 transition hover:bg-blue-500/15"
-          >
-            <ArrowUpRight className="h-4 w-4" /> Live Preview
-          </a>
-          <a
-            href={project.link}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-2 rounded-md border border-white/10 bg-zinc-900 px-4 py-2 text-sm text-zinc-100 transition hover:border-white/20"
-          >
-            <GitFork className="h-4 w-4" /> Source Code
-          </a>
-        </div>
+        <a href={project.link} target="_blank" rel="noreferrer" className="btn-primary mt-8 inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-black">
+          <Code2 className="h-4 w-4" /> Open Repository
+        </a>
       </motion.article>
     </motion.div>
   );
 }
 
 export default function ProjectGrid() {
-  const [projects, setProjects] = useState<ManagedProject[]>([]);
+  const [baseProjects, setBaseProjects] = useState<ManagedProject[]>([]);
+  const [githubProjects, setGithubProjects] = useState<ManagedProject[]>([]);
   const [selectedProject, setSelectedProject] = useState<ManagedProject | null>(null);
 
   useEffect(() => {
-    const unsubscribe = subscribeProjects(setProjects);
+    const unsubscribe = subscribeProjects(setBaseProjects);
     return () => unsubscribe();
   }, []);
 
+  useEffect(() => {
+    let mounted = true;
+    fetchGithubProjects()
+      .then((projects) => {
+        if (mounted) setGithubProjects(projects);
+      })
+      .catch(() => {
+        if (mounted) setGithubProjects([]);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const projects = useMemo(() => {
+    const merged = mergeProjects(baseProjects, githubProjects);
+    return merged.length ? merged : fallbackProjects;
+  }, [baseProjects, githubProjects]);
+  const featuredCount = projects.filter((project) => project.featured).length;
+  const totalStars = projects.reduce((total, project) => total + (project.stars ?? 0), 0);
+  const totalForks = projects.reduce((total, project) => total + (project.forks ?? 0), 0);
+
   return (
-    <section id="projects" className="relative mx-auto w-full max-w-6xl px-5 py-20 sm:px-6 sm:py-24">
-      <motion.div variants={container} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.2 }}>
-        <motion.div variants={item} className="mb-8 sm:mb-10">
-          <p className="text-xs uppercase tracking-[0.24em] text-blue-500">Selected Work</p>
-          <h2 className="heading-modern mt-3 text-3xl font-bold text-zinc-100 sm:text-4xl">Bento Project Gallery</h2>
+    <section id="projects" className="relative overflow-hidden px-5 py-20 sm:px-6 sm:py-24">
+      <div className="mx-auto w-full max-w-[calc(100vw-2rem)]">
+        <motion.div variants={container} initial="show" animate="show">
+          <motion.div variants={item} className="mb-5 grid gap-6 lg:grid-cols-[1fr_0.82fr] lg:items-end">
+            <div>
+              <p className="inline-flex items-center gap-2 rounded-md bg-[var(--accent)] px-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#07110f]">
+                <Layers3 className="h-4 w-4" /> Selected work
+              </p>
+              <h2 className="text-balance mt-4 max-w-2xl text-4xl font-black leading-tight text-[var(--text)] sm:text-5xl">Projects with useful ideas behind the polish.</h2>
+              <p className="muted-text mt-4 max-w-2xl text-sm leading-7 sm:text-base">
+                Live GitHub work shaped into a portfolio view with stack, activity, and direct source links.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-center sm:grid-cols-4 lg:grid-cols-2">
+              {[
+                { label: "Repos", value: projects.length },
+                { label: "Featured", value: featuredCount },
+                { label: "Stars", value: totalStars },
+                { label: "Forks", value: totalForks },
+              ].map((stat) => (
+                <div key={stat.label} className="panel rounded-lg px-2 py-4 sm:px-3">
+                  <strong className="block text-lg text-[var(--text)] sm:text-xl">{stat.value}</strong>
+                  <span className="muted-text text-[10px] uppercase tracking-[0.14em] sm:text-[11px]">{stat.label}</span>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-12">
+            {projects.map((project, index) => (
+              <ProjectCard key={`${project.id}-${project.link}`} project={project} index={index} onOpen={setSelectedProject} />
+            ))}
+          </div>
         </motion.div>
+      </div>
 
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-12">
-          {projects.map((project) => (
-            <ProjectCard key={project.title} project={project} onOpen={setSelectedProject} />
-          ))}
-        </div>
-      </motion.div>
-
-      <AnimatePresence>
-        {selectedProject ? <ProjectModal project={selectedProject} onClose={() => setSelectedProject(null)} /> : null}
-      </AnimatePresence>
+      <AnimatePresence>{selectedProject ? <ProjectModal project={selectedProject} onClose={() => setSelectedProject(null)} /> : null}</AnimatePresence>
     </section>
   );
 }

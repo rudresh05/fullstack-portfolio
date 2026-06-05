@@ -24,19 +24,19 @@ export default function BlogDetailPage() {
 
   if (loading) {
     return (
-      <main className="mx-auto flex min-h-[70vh] w-full max-w-3xl items-center justify-center px-6">
-        <p className="text-sm text-zinc-400">Loading article...</p>
+      <main className="mx-auto flex min-h-screen w-full max-w-[calc(100vw-2rem)] items-center justify-center px-6">
+        <p className="muted-text text-sm">Loading article...</p>
       </main>
     );
   }
 
   if (!post) {
     return (
-      <main className="mx-auto min-h-[70vh] w-full max-w-3xl px-6 py-16">
-        <p className="text-xs uppercase tracking-[0.25em] text-blue-500">Article</p>
-        <h1 className="heading-modern mt-3 text-3xl font-bold text-zinc-100">Post not found</h1>
-        <p className="mt-3 text-sm text-zinc-400">This article may have been deleted or renamed.</p>
-        <Link href="/blog" className="mt-6 inline-flex rounded-md border border-white/10 px-4 py-2 text-sm text-zinc-100 hover:border-blue-500/35">
+      <main className="mx-auto min-h-screen w-full max-w-[calc(100vw-2rem)] px-6 pb-16 pt-28">
+        <p className="accent-text text-xs font-black uppercase tracking-[0.25em]">Article</p>
+        <h1 className="mt-3 text-3xl font-black text-[var(--text)]">Post not found</h1>
+        <p className="muted-text mt-3 text-sm">This article may have been deleted or renamed.</p>
+        <Link href="/blog" className="btn-secondary mt-6 inline-flex rounded-md px-4 py-2 text-sm font-black">
           Back to Blog
         </Link>
       </main>
@@ -49,20 +49,20 @@ export default function BlogDetailPage() {
     .filter(Boolean);
 
   return (
-    <main className="mx-auto min-h-[70vh] w-full max-w-3xl px-6 py-16">
-      <Link href="/blog" className="text-sm text-blue-400 hover:text-blue-300">
+    <main className="mx-auto min-h-screen w-full max-w-[calc(100vw-2rem)] px-6 pb-16 pt-28">
+      <Link href="/blog" className="accent-text text-sm font-black hover:opacity-80">
         Back to Blog
       </Link>
 
-      <article className="mt-8 rounded-2xl border border-white/10 bg-zinc-900/45 p-6 backdrop-blur-md sm:p-8">
-        <p className="text-xs uppercase tracking-[0.25em] text-blue-500">{post.date}</p>
-        <h1 className="heading-modern mt-4 text-3xl font-bold text-zinc-100 sm:text-5xl">{post.title}</h1>
-        <p className="mt-3 text-sm text-zinc-500">{post.readTime}</p>
-        <p className="mt-6 text-lg leading-8 text-zinc-300">{post.excerpt}</p>
+      <article className="panel-strong mt-8 rounded-lg p-6 sm:p-8">
+        <p className="accent-text text-xs font-black uppercase tracking-[0.25em]">{post.date}</p>
+        <h1 className="mt-4 max-w-5xl text-3xl font-black text-[var(--text)] sm:text-6xl">{post.title}</h1>
+        <p className="muted-text mt-3 text-sm">{post.readTime}</p>
+        <p className="muted-text mt-6 max-w-4xl text-lg leading-8">{post.excerpt}</p>
 
-        <div className="mt-8 space-y-5 border-t border-white/10 pt-8">
+        <div className="mt-8 grid gap-5 border-t border-[var(--line)] pt-8 lg:grid-cols-2">
           {paragraphs.map((paragraph) => (
-            <p key={paragraph} className="text-sm leading-7 text-zinc-400">
+            <p key={paragraph} className="muted-text text-sm leading-7">
               {paragraph}
             </p>
           ))}

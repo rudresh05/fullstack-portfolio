@@ -1,30 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { AnimatePresence, motion, useMotionTemplate, useMotionValue, useSpring } from "framer-motion";
-import { AtSign, BadgeCheck, Globe } from "lucide-react";
+import Link from "next/link";
+import Image from "next/image";
+import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
+import { ArrowUpRight, AtSign, BadgeCheck, Globe, Mail, Sparkles } from "lucide-react";
 
 import { HERO_SETTINGS, SOCIAL_LINKS } from "@/constants";
 import { fetchSetting, subscribeSetting } from "@/lib/content-store";
-import { cn } from "@/lib/utils";
 
-const NAME = "RUDRESH PATEL";
-const ROLES = ["Full Stack Developer", "AI Researcher", "Problem Solver"];
 const EXPO_OUT: [number, number, number, number] = [0.16, 1, 0.3, 1];
-
-const container = {
-  hidden: { opacity: 0, y: 20 },
-  show: {
-    opacity: 1,
-    y: 0,
-    transition: { staggerChildren: 0.12, ease: EXPO_OUT, duration: 0.8 },
-  },
-};
-
-const item = {
-  hidden: { opacity: 0, y: 16 },
-  show: { opacity: 1, y: 0, transition: { ease: EXPO_OUT, duration: 0.7 } },
-};
+const STACK = ["Next.js", "React", "TypeScript", "AI/ML", "Android", "Firebase"];
+const METRICS = [
+  { value: "23+", label: "public repositories" },
+  { value: "3", label: "product tracks" },
+  { value: "2026", label: "active portfolio" },
+];
 
 const iconMap = {
   github: BadgeCheck,
@@ -32,37 +23,21 @@ const iconMap = {
   twitter: Globe,
 } as const;
 
+const container = {
+  hidden: { opacity: 0, y: 18 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { staggerChildren: 0.08, ease: EXPO_OUT, duration: 0.75 },
+  },
+};
+
+const item = {
+  hidden: { opacity: 0, y: 16 },
+  show: { opacity: 1, y: 0, transition: { ease: EXPO_OUT, duration: 0.62 } },
+};
+
 export default function Hero() {
-  const [activeRole, setActiveRole] = useState(0);
-  const letters = useMemo(() => NAME.split(""), []);
-
-  const mouseX = useMotionValue(0);
-  const mouseY = useMotionValue(0);
-  const smoothX = useSpring(mouseX, { stiffness: 120, damping: 24, mass: 0.5 });
-  const smoothY = useSpring(mouseY, { stiffness: 120, damping: 24, mass: 0.5 });
-
-  const spotlight = useMotionTemplate`radial-gradient(520px circle at ${smoothX}px ${smoothY}px, rgba(59, 130, 246, 0.15), transparent 42%)`;
-
-  useEffect(() => {
-    const updateCenter = () => {
-      mouseX.set(window.innerWidth / 2);
-      mouseY.set(window.innerHeight / 2);
-    };
-
-    updateCenter();
-    window.addEventListener("resize", updateCenter);
-
-    return () => window.removeEventListener("resize", updateCenter);
-  }, [mouseX, mouseY]);
-
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      setActiveRole((prev) => (prev + 1) % ROLES.length);
-    }, 2200);
-
-    return () => window.clearInterval(id);
-  }, []);
-
   const [socials, setSocials] = useState(() => SOCIAL_LINKS);
   const [heroSettings, setHeroSettings] = useState<{ imageUrl?: string }>(() => HERO_SETTINGS);
 
@@ -78,120 +53,111 @@ export default function Hero() {
   }, []);
 
   return (
-    <section
-      id="home"
-      className="relative flex min-h-screen w-full items-center justify-center overflow-hidden px-5 py-20 sm:px-6 sm:py-24"
-      onMouseMove={(event) => {
-        mouseX.set(event.clientX);
-        mouseY.set(event.clientY);
-      }}
-    >
-      <motion.div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 z-0"
-        style={{ backgroundImage: spotlight }}
-      />
-
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0">
-        <div className="absolute left-1/2 top-[14%] h-56 w-56 -translate-x-1/2 rounded-full bg-blue-500/10 blur-3xl sm:h-80 sm:w-80" />
-        <div className="absolute bottom-[10%] right-[12%] h-44 w-44 rounded-full bg-zinc-400/5 blur-3xl" />
-      </div>
+    <section id="home" className="relative isolate min-h-screen overflow-hidden px-5 pb-16 pt-28 sm:px-6 lg:pt-32">
+      <div aria-hidden="true" className="absolute inset-x-0 top-24 -z-10 h-px premium-rule opacity-70" />
 
       <motion.div
         variants={container}
         initial="hidden"
         animate="show"
-        className="relative z-10 mx-auto flex w-full max-w-5xl flex-col items-center justify-center gap-7 text-center sm:gap-9"
+        className="relative mx-auto grid w-full max-w-[calc(100vw-2rem)] gap-5 lg:grid-cols-[1.08fr_0.92fr] lg:items-stretch"
       >
-        <motion.p variants={item} className="rounded-full border border-white/10 bg-zinc-900/35 px-4 py-1 text-[10px] uppercase tracking-[0.25em] text-zinc-400 backdrop-blur-sm sm:text-xs">
-          Premium Interfaces. Built for Results.
-        </motion.p>
+        <motion.div variants={item} className="panel-strong rounded-lg p-5 sm:p-7 lg:p-9">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="inline-flex items-center gap-2 rounded-md border border-[var(--line)] bg-[color-mix(in_srgb,var(--panel-strong)_78%,transparent)] px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-[var(--text)]">
+              <Sparkles className="h-4 w-4 accent-text" /> Available for work
+            </div>
+            <div className="muted-text text-xs font-bold uppercase tracking-[0.22em]">Full stack / AI / Android</div>
+          </div>
 
-        {heroSettings.imageUrl ? (
-          <motion.div
-            variants={item}
-            className="relative h-32 w-32 overflow-hidden rounded-full border border-blue-500/30 bg-zinc-900/60 shadow-[0_0_60px_-24px_rgba(59,130,246,0.9)] sm:h-40 sm:w-40"
-          >
-            <img
-              src={heroSettings.imageUrl}
-              alt="Rudresh Patel"
-              className="h-full w-full object-cover"
-            />
-          </motion.div>
-        ) : null}
+          <p className="accent-text mt-10 text-sm font-black uppercase tracking-[0.34em]">Rudresh Patel</p>
+          <h1 className="text-balance mt-4 max-w-4xl text-5xl font-black leading-[0.98] text-[var(--text)] sm:text-6xl lg:text-7xl">
+            I craft polished digital products with clean code and sharp UX.
+          </h1>
+          <p className="muted-text mt-6 max-w-2xl text-base leading-8 sm:text-lg">
+            A full-stack developer focused on premium portfolio experiences, useful web apps, AI experiments, and Android-ready product ideas.
+          </p>
 
-        <h1 className={cn("heading-modern max-w-4xl bg-gradient-to-b from-white via-zinc-200 to-zinc-500 bg-clip-text font-sans text-4xl font-black text-transparent sm:text-6xl md:text-7xl")}> 
-          {letters.map((letter, index) => (
-            <motion.span
-              key={`${letter}-${index}`}
-              initial={{ opacity: 0, y: 32 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.62, delay: index * 0.03, ease: EXPO_OUT }}
-              className={cn("inline-block", letter === " " ? "w-[0.34em]" : "")}
-            >
-              {letter === " " ? "\u00A0" : letter}
-            </motion.span>
-          ))}
-        </h1>
+          <div className="mt-8 grid gap-3 sm:grid-cols-3">
+            {METRICS.map((metric) => (
+              <div key={metric.label} className="rounded-lg border border-[var(--line)] bg-[color-mix(in_srgb,var(--panel-strong)_70%,transparent)] p-4">
+                <p className="text-3xl font-black text-[var(--text)]">{metric.value}</p>
+                <p className="muted-text mt-1 text-xs font-bold uppercase tracking-[0.16em]">{metric.label}</p>
+              </div>
+            ))}
+          </div>
 
-        <motion.div variants={item} className="h-9 overflow-hidden sm:h-12">
-          <AnimatePresence mode="wait">
-            <motion.p
-              key={ROLES[activeRole]}
-              initial={{ opacity: 0, y: 22, filter: "blur(8px)" }}
-              animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-              exit={{ opacity: 0, y: -22, filter: "blur(8px)" }}
-              transition={{ duration: 0.75, ease: EXPO_OUT }}
-              className="text-sm font-medium text-blue-500 sm:text-xl"
-            >
-              {ROLES[activeRole]}
-            </motion.p>
-          </AnimatePresence>
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <a href="#projects" className="btn-primary inline-flex min-h-12 items-center justify-center gap-2 rounded-md px-6 py-3 text-sm font-black transition hover:-translate-y-0.5">
+              View Projects <ArrowUpRight className="h-4 w-4" />
+            </a>
+            <a href="#contact" className="btn-secondary inline-flex min-h-12 items-center justify-center gap-2 rounded-md px-6 py-3 text-sm font-black transition hover:-translate-y-0.5">
+              Contact Me <Mail className="h-4 w-4" />
+            </a>
+            <Link href="/blog" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-6 py-3 text-sm font-black text-[#07110f] transition hover:-translate-y-0.5">
+              Read Blog <ArrowUpRight className="h-4 w-4" />
+            </Link>
+          </div>
         </motion.div>
 
-        <motion.div variants={item} className="flex flex-col items-center gap-3 sm:flex-row sm:gap-4">
-          <motion.a
-            href="#projects"
-            whileHover={{ y: -3 }}
-            whileTap={{ scale: 0.98 }}
-            transition={{ duration: 0.35, ease: EXPO_OUT }}
-            className="inline-flex min-w-[168px] items-center justify-center rounded-lg bg-blue-500 px-6 py-3 text-sm font-semibold text-white transition-all hover:bg-blue-400 hover:shadow-[0_14px_36px_-16px_rgba(59,130,246,0.9)]"
-          >
-            View My Work
-          </motion.a>
+        <motion.div variants={item} className="grid gap-5">
+          <div className="panel overflow-hidden rounded-lg">
+            <div className="grid sm:grid-cols-[0.92fr_1.08fr]">
+              <div className="relative min-h-[24rem] bg-[var(--bg-soft)]">
+                {heroSettings.imageUrl ? (
+                  <Image src={heroSettings.imageUrl} alt="Rudresh Patel" fill sizes="(min-width: 1024px) 36rem, 100vw" className="object-cover" priority />
+                ) : null}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-transparent" />
+                <div className="absolute bottom-4 left-4 rounded-md border border-white/20 bg-black/45 px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-white backdrop-blur">
+                  Builder
+                </div>
+              </div>
 
-          <motion.a
-            href="/blog"
-            whileHover={{ y: -3 }}
-            whileTap={{ scale: 0.98 }}
-            transition={{ duration: 0.35, ease: EXPO_OUT }}
-            className="inline-flex min-w-[168px] items-center justify-center rounded-lg border border-white/10 bg-zinc-900/40 px-6 py-3 text-sm font-semibold text-zinc-100 backdrop-blur-sm transition-all hover:border-white/20 hover:bg-zinc-800/40 hover:shadow-[0_14px_36px_-18px_rgba(255,255,255,0.25)]"
-          >
-            Read Blog
-          </motion.a>
-        </motion.div>
+              <div className="flex flex-col p-5 sm:p-6">
+                <p className="muted-text text-xs font-black uppercase tracking-[0.22em]">Current toolkit</p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {STACK.map((stack) => (
+                    <span key={stack} className="rounded-md border border-[var(--line)] bg-[color-mix(in_srgb,var(--panel-strong)_70%,transparent)] px-2.5 py-1.5 text-xs font-bold text-[var(--text)]">
+                      {stack}
+                    </span>
+                  ))}
+                </div>
 
-        <motion.div variants={item} className="pt-3">
-          <div className="flex items-center gap-2 rounded-full border border-white/10 bg-zinc-900/30 px-3 py-2 backdrop-blur-sm sm:gap-3 sm:px-4">
-            {socials.map((item) => {
-              const Icon = iconMap[item.icon as keyof typeof iconMap];
+                <div className="mt-7 border-t border-[var(--line)] pt-6">
+                  <p className="text-2xl font-black leading-tight text-[var(--text)]">Designing interfaces that feel deliberate, fast, and easy to trust.</p>
+                  <p className="muted-text mt-4 text-sm leading-7">
+                    I like systems with strong hierarchy, honest motion, clear calls to action, and content that gets to the point.
+                  </p>
+                </div>
 
-              return (
-                <motion.a
-                  key={item.label}
-                  href={item.href}
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-label={item.label}
-                  whileHover={{ y: -3, scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  transition={{ duration: 0.3, ease: EXPO_OUT }}
-                  className="rounded-full p-2 text-zinc-300 transition-colors hover:text-white"
-                >
-                  <Icon className="h-5 w-5" />
-                </motion.a>
-              );
-            })}
+                <div className="mt-auto flex gap-2 pt-7">
+                  {socials.map((social) => {
+                    const Icon = iconMap[social.icon as keyof typeof iconMap];
+                    return (
+                      <a
+                        key={social.label}
+                        href={social.href}
+                        target="_blank"
+                        rel="noreferrer"
+                        aria-label={social.label}
+                        className="rounded-md border border-[var(--line)] p-2 text-[var(--text)] transition hover:-translate-y-0.5 hover:bg-[color-mix(in_srgb,var(--text)_7%,transparent)]"
+                      >
+                        <Icon className="h-5 w-5" />
+                      </a>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            {["Web Apps", "AI Labs", "Mobile"].map((label) => (
+              <div key={label} className="panel rounded-lg p-4 text-center">
+                <p className="text-sm font-black text-[var(--text)]">{label}</p>
+                <p className="muted-text mt-1 text-[10px] font-bold uppercase tracking-[0.16em]">focus</p>
+              </div>
+            ))}
           </div>
         </motion.div>
       </motion.div>
