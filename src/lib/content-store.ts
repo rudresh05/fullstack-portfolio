@@ -142,7 +142,16 @@ async function contentRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const payload = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    const message = typeof payload?.error === "string" ? payload.error : "Content request failed.";
+    let message = typeof payload?.error === "string" ? payload.error : "Content request failed.";
+    
+    // Include extra details if available (e.g. from our new detailed error reporting)
+    if (payload?.message) {
+      message = `${message}: ${payload.message}`;
+    }
+    if (payload?.code) {
+      message = `${message} (code: ${payload.code})`;
+    }
+    
     throw new Error(message);
   }
 

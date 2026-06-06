@@ -12,9 +12,9 @@ type ContentType = "projects" | "blogs" | "settings" | "journals";
 
 function getFirebaseAdmin() {
   if (!admin.apps.length) {
-    let rawServiceAccount = process.env.FIREBASE_SERVICE_ACCOUNT;
+    const rawServiceAccount = process.env.FIREBASE_SERVICE_ACCOUNT;
     if (!rawServiceAccount) {
-      throw new Error("FIREBASE_SERVICE_ACCOUNT is missing.");
+      throw new Error("FIREBASE_SERVICE_ACCOUNT environment variable is missing.");
     }
 
     try {
@@ -23,7 +23,12 @@ function getFirebaseAdmin() {
       if (cleanJson.startsWith("'") && cleanJson.endsWith("'")) cleanJson = cleanJson.slice(1, -1);
       if (cleanJson.startsWith('"') && cleanJson.endsWith('"')) cleanJson = cleanJson.slice(1, -1);
 
-      const serviceAccount = JSON.parse(cleanJson);
+      let serviceAccount = JSON.parse(cleanJson);
+      
+      // Handle double-stringified JSON if it exists
+      if (typeof serviceAccount === "string") {
+        serviceAccount = JSON.parse(serviceAccount);
+      }
       
       // 2. Extremely robust private key cleaning
       if (serviceAccount.private_key && typeof serviceAccount.private_key === "string") {
@@ -32,8 +37,8 @@ function getFirebaseAdmin() {
         // Convert all variations of newline sequences (\n, \\n, \r\n) to real newlines
         key = key.replace(/\\n/g, "\n").replace(/\r\n/g, "\n");
         
-        // Remove any unintentional leading/trailing spaces on each line (explicitly typed for Vercel)
-        key = key.split("\n").map((line: string) => line.trim()).join("\n");
+        // Remove any unintentional leading/trailing spaces on each line
+        key = key.split("\n").map((line: string) => line.trim()).filter(Boolean).join("\n");
         
         // Ensure the header and footer are exactly right
         if (!key.includes("-----BEGIN PRIVATE KEY-----")) {
@@ -48,8 +53,8 @@ function getFirebaseAdmin() {
 
       admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
     } catch (err) {
-      console.error("Firebase Auth Error:", err);
-      throw new Error(`Failed to parse Firebase credentials: ${err instanceof Error ? err.message : String(err)}`);
+      console.error("Firebase Initialization Error:", err);
+      throw new Error(`Failed to initialize Firebase Admin: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
@@ -91,7 +96,6 @@ function canVerifyFirebaseToken() {
 
 async function requireAdmin(request: Request) {
   // If we're in development and Firebase is being difficult, allow the write to proceed
-  // This is a safety valve to ensure you aren't blocked from your own portfolio locally.
   if (process.env.NODE_ENV === "development") {
     return null;
   }
@@ -104,13 +108,20 @@ async function requireAdmin(request: Request) {
   }
 
   try {
-    const decoded = await getFirebaseAdmin().auth().verifyIdToken(token);
+    const adminApp = getFirebaseAdmin();
+    const decoded = await adminApp.auth().verifyIdToken(token);
+    
     if (ADMIN_EMAIL && decoded.email?.trim().toLowerCase() !== ADMIN_EMAIL) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      console.warn(`Access denied for ${decoded.email}. Admin email is ${ADMIN_EMAIL}.`);
+      return NextResponse.json({ error: "Forbidden: You are not an admin." }, { status: 403 });
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error("Firebase Verification Error:", err);
-    return NextResponse.json({ error: "Authentication failed" }, { status: 401 });
+    return NextResponse.json({ 
+      error: "Authentication failed", 
+      message: err.message,
+      code: err.code 
+    }, { status: 401 });
   }
 
   return null;

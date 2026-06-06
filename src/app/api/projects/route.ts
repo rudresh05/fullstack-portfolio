@@ -2,35 +2,81 @@ import { NextResponse } from 'next/server';
 import admin from 'firebase-admin';
 import { createClient } from '@supabase/supabase-js';
 
-if (!admin.apps.length && process.env.FIREBASE_SERVICE_ACCOUNT) {
-  try {
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-    admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
-  } catch {
-    // A malformed local service-account value should not crash static builds.
-  }
-}
-
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
 const SUPABASE_KEY =
   process.env.SUPABASE_SERVICE_ROLE_KEY ??
   (process.env.NODE_ENV !== 'production' ? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY : '') ??
   '';
+const ADMIN_EMAIL = (process.env.NEXT_PUBLIC_ADMIN_EMAIL || '').trim().toLowerCase();
+
+function getFirebaseAdmin() {
+  if (!admin.apps.length) {
+    const rawServiceAccount = process.env.FIREBASE_SERVICE_ACCOUNT;
+    if (!rawServiceAccount) {
+      throw new Error("FIREBASE_SERVICE_ACCOUNT environment variable is missing.");
+    }
+
+    try {
+      let cleanJson = rawServiceAccount.trim();
+      if (cleanJson.startsWith("'") && cleanJson.endsWith("'")) cleanJson = cleanJson.slice(1, -1);
+      if (cleanJson.startsWith('"') && cleanJson.endsWith('"')) cleanJson = cleanJson.slice(1, -1);
+
+      let serviceAccount = JSON.parse(cleanJson);
+      if (typeof serviceAccount === "string") {
+        serviceAccount = JSON.parse(serviceAccount);
+      }
+      
+      if (serviceAccount.private_key && typeof serviceAccount.private_key === "string") {
+        let key = serviceAccount.private_key;
+        key = key.replace(/\\n/g, "\n").replace(/\r\n/g, "\n");
+        key = key.split("\n").map((line: string) => line.trim()).filter(Boolean).join("\n");
+        
+        if (!key.includes("-----BEGIN PRIVATE KEY-----")) {
+           key = `-----BEGIN PRIVATE KEY-----\n${key}`;
+        }
+        if (!key.includes("-----END PRIVATE KEY-----")) {
+           key = `${key}\n-----END PRIVATE KEY-----`;
+        }
+        
+        serviceAccount.private_key = key.trim() + "\n";
+      }
+
+      admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
+    } catch (err) {
+      console.error("Firebase Initialization Error:", err);
+      throw new Error(`Failed to initialize Firebase Admin: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  return admin;
+}
 
 async function requireAdmin(req: Request) {
-  if (!process.env.FIREBASE_SERVICE_ACCOUNT && process.env.NODE_ENV !== 'production') {
+  if (process.env.NODE_ENV === "development") {
     return null;
   }
 
   const authHeader = req.headers.get('authorization') || '';
   const token = authHeader.replace(/^Bearer\s+/i, '');
-  if (!token) return NextResponse.json({ error: 'Missing token' }, { status: 401 });
-  if (!admin.apps.length) return NextResponse.json({ error: 'Firebase admin is not configured.' }, { status: 500 });
+  
+  if (!token) {
+    return NextResponse.json({ error: 'Missing token' }, { status: 401 });
+  }
 
-  const decoded = await admin.auth().verifyIdToken(token);
-  const adminEmail = (process.env.NEXT_PUBLIC_ADMIN_EMAIL || '').trim().toLowerCase();
-  if (adminEmail && decoded.email?.toLowerCase() !== adminEmail) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  try {
+    const adminApp = getFirebaseAdmin();
+    const decoded = await adminApp.auth().verifyIdToken(token);
+    
+    if (ADMIN_EMAIL && decoded.email?.toLowerCase() !== ADMIN_EMAIL) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+  } catch (err: any) {
+    console.error("Firebase Verification Error:", err);
+    return NextResponse.json({ 
+      error: "Authentication failed", 
+      message: err.message,
+      code: err.code 
+    }, { status: 401 });
   }
 
   return null;
