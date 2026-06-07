@@ -22,6 +22,7 @@ type GitHubRepo = {
   forks_count: number;
   updated_at: string;
   topics?: string[];
+  size: number;
 };
 
 const curatedDescriptions: Record<string, string> = {
@@ -31,6 +32,10 @@ const curatedDescriptions: Record<string, string> = {
   Tree_Data_Structure: "Java implementations and exercises for core tree traversal, recursion, and data-structure practice.",
   Recursion: "A focused Java practice repository for recursion patterns, problem solving, and fundamentals.",
   Learn_Kotlin_Basics: "Kotlin fundamentals and syntax practice for Android-ready application development.",
+  "Atmospheric-Intelligence-App": "A sleek and minimalistic Weather App built using Kotlin and Retrofit for Android.",
+  music_app: "A simple Android Music Player app built with Kotlin that lets you play, pause, and navigate songs with a clean UI.",
+  PathAI: "Your AI-Powered Learning Path generator, helping students navigate complex subjects with ease.",
+  "focus-os": "The strategic execution workstation for professional goal tracking and high-integrity delivery.",
 };
 
 const languageTech: Record<string, string[]> = {
@@ -40,6 +45,7 @@ const languageTech: Record<string, string[]> = {
   Kotlin: ["Kotlin", "Android", "Mobile"],
   Python: ["Python", "AI/ML", "Automation"],
   HTML: ["HTML", "CSS", "JavaScript"],
+  null: ["Software", "Development", "Open Source"],
 };
 
 const fallbackProjects: ManagedProject[] = PROJECTS.map((project, index) => ({
@@ -89,7 +95,9 @@ function getRepoName(project: ManagedProject) {
 }
 
 function mapRepoToProject(repo: GitHubRepo, index: number): ManagedProject {
-  const tech = repo.topics?.length ? repo.topics.map(titleFromRepo).slice(0, 4) : languageTech[repo.language ?? ""] ?? [repo.language ?? "Repository"];
+  const repoTech = repo.topics?.length 
+    ? repo.topics.map(titleFromRepo).slice(0, 4) 
+    : languageTech[repo.language ?? "null"] ?? [repo.language ?? "Repository"];
 
   return {
     id: `github-${slugify(repo.name)}`,
@@ -98,9 +106,9 @@ function mapRepoToProject(repo: GitHubRepo, index: number): ManagedProject {
       repo.description ??
       curatedDescriptions[repo.name] ??
       `${titleFromRepo(repo.name)} is a public GitHub project built around ${repo.language ?? "software"} practice and delivery.`,
-    tech,
-    link: repo.html_url,
-    featured: index < 2,
+    tech: repoTech,
+    link: repo.homepage || repo.html_url,
+    featured: index < 2 || repo.stargazers_count > 5,
     stars: repo.stargazers_count,
     forks: repo.forks_count,
     updatedAt: repo.updated_at,
@@ -140,7 +148,25 @@ async function fetchGithubProjects() {
   if (!response.ok) throw new Error("GitHub projects could not be loaded.");
 
   const repos = (await response.json()) as GitHubRepo[];
-  return repos.filter((repo) => !repo.fork).map(mapRepoToProject);
+  
+  // Filter out:
+  // 1. Forks
+  // 2. Repos with 0 size
+  // 3. Repos without description that aren't in our curated list
+  // 4. The user's profile README repository (rudresh05/rudresh05)
+  // 5. Specific projects the user wants removed
+  return repos
+    .filter((repo) => {
+      const isProfileRepo = repo.name.toLowerCase() === "rudresh05";
+      const hasDescription = repo.description || curatedDescriptions[repo.name];
+      const isSubstantial = repo.size > 0;
+      const isExcluded = ["Farmer Merchant Integration", "Solar System", "Solar-System"].some(
+        (title) => repo.name.toLowerCase() === title.toLowerCase().replace(/\s+/g, "-") || repo.name === title
+      );
+      
+      return !repo.fork && !isProfileRepo && hasDescription && isSubstantial && !isExcluded;
+    })
+    .map(mapRepoToProject);
 }
 
 function ProjectCard({ project, onOpen, index }: { project: ManagedProject; onOpen: (project: ManagedProject) => void; index: number }) {
@@ -290,7 +316,11 @@ export default function ProjectGrid() {
 
   const projects = useMemo(() => {
     const merged = mergeProjects(baseProjects, githubProjects);
-    return merged.length ? merged : fallbackProjects;
+    const finalProjects = merged.length ? merged : fallbackProjects;
+    
+    // Final exclusion list for titles
+    const excludedTitles = ["Farmer Merchant Integration", "Solar System"];
+    return finalProjects.filter(p => !excludedTitles.some(title => p.title.toLowerCase() === title.toLowerCase()));
   }, [baseProjects, githubProjects]);
   const featuredCount = projects.filter((project) => project.featured).length;
   const totalStars = projects.reduce((total, project) => total + (project.stars ?? 0), 0);

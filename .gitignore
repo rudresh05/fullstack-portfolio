@@ -36,6 +36,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# secrets
+rudresh-portfolio-firebase-adminsdk-fbsvc-*.json
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

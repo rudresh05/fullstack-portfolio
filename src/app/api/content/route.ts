@@ -18,31 +18,40 @@ function getFirebaseAdmin() {
     }
 
     try {
-      let cleanJson = rawServiceAccount.trim();
-      if (cleanJson.startsWith("'") && cleanJson.endsWith("'")) cleanJson = cleanJson.slice(1, -1);
-      if (cleanJson.startsWith('"') && cleanJson.endsWith('"')) cleanJson = cleanJson.slice(1, -1);
+      // 1. Clean accidental quotes around the whole JSON string
+      let jsonStr = rawServiceAccount.trim();
+      if (jsonStr.startsWith("'") && jsonStr.endsWith("'")) jsonStr = jsonStr.slice(1, -1);
+      if (jsonStr.startsWith('"') && jsonStr.endsWith('"')) jsonStr = jsonStr.slice(1, -1);
+      
+      const config = JSON.parse(jsonStr);
+      let pKey = config.private_key || config.privateKey;
+      
+      if (!pKey || typeof pKey !== "string") {
+        throw new Error("Private key is missing from service account config.");
+      }
 
-      let serviceAccount = JSON.parse(cleanJson);
-      if (typeof serviceAccount === "string") {
-        serviceAccount = JSON.parse(serviceAccount);
+      // 2. Definitive PEM formatting for OpenSSL 3.0
+      // Ensure literal \n in JSON string are converted to real newlines
+      let formattedKey = pKey.replace(/\\n/g, "\n");
+      
+      // Ensure the key starts and ends with proper headers (only if missing)
+      if (!formattedKey.includes("-----BEGIN PRIVATE KEY-----")) {
+        formattedKey = `-----BEGIN PRIVATE KEY-----\n${formattedKey}`;
+      }
+      if (!formattedKey.includes("-----END PRIVATE KEY-----")) {
+        formattedKey = `${formattedKey}\n-----END PRIVATE KEY-----\n`;
       }
       
-      if (serviceAccount.private_key && typeof serviceAccount.private_key === "string") {
-        let key = serviceAccount.private_key;
-        
-        // Normalize newlines: Convert literal "\\n" to actual newlines
-        key = key.replace(/\\n/g, "\n");
-        
-        // Only wrap in headers if they are completely missing.
-        // We check for "-----BEGIN" to avoid double-wrapping "RSA PRIVATE KEY" vs "PRIVATE KEY".
-        if (!key.includes("-----BEGIN")) {
-           key = `-----BEGIN PRIVATE KEY-----\n${key}\n-----END PRIVATE KEY-----`;
-        }
-        
-        serviceAccount.private_key = key.trim() + "\n";
-      }
+      // Remove any accidental double-wrapping or extra whitespace
+      formattedKey = formattedKey.trim() + "\n";
 
-      admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
+      admin.initializeApp({
+        credential: admin.credential.cert({
+          projectId: config.project_id || config.projectId,
+          clientEmail: config.client_email || config.clientEmail,
+          privateKey: formattedKey,
+        }),
+      });
     } catch (err) {
       console.error("Firebase Initialization Error:", err);
       throw new Error(`Failed to initialize Firebase Admin: ${err instanceof Error ? err.message : String(err)}`);
