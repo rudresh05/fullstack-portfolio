@@ -65,19 +65,7 @@ export const slugify = (value: string) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
 
-const defaultProjects: ManagedProject[] = PROJECTS.map((project, index) => ({
-  id: `${slugify(project.title)}-${index + 1}`,
-  title: project.title,
-  description: project.description,
-  tech: [...project.tech],
-  link: project.link,
-  imageUrl: project.imageUrl,
-  featured: project.featured,
-  stars: project.stars,
-  forks: project.forks,
-  updatedAt: project.updatedAt,
-  repoName: project.repoName,
-}));
+const defaultProjects: ManagedProject[] = [];
 
 const defaultBlogs: ManagedBlog[] = BLOG_POSTS.map((post, index) => ({
   id: `${slugify(post.title)}-${index + 1}`,
@@ -170,21 +158,11 @@ async function adminContentRequest<T>(init: RequestInit): Promise<T> {
 }
 
 export function loadProjects(): ManagedProject[] {
-  if (!isBrowser()) return defaultProjects;
-
-  try {
-    const raw = window.localStorage.getItem(PROJECTS_KEY);
-    if (!raw) return defaultProjects;
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return defaultProjects;
-    return parsed as ManagedProject[];
-  } catch {
-    return defaultProjects;
-  }
+  return [];
 }
 
 export function saveProjects(projects: ManagedProject[]) {
-  saveLocalProjects(projects);
+  // Database only, no local storage persistence
 }
 
 export function loadBlogs(): ManagedBlog[] {
