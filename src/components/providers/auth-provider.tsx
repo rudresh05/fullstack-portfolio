@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from "react";
-import { User, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "firebase/auth";
+import { User, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "@firebase/auth";
 import { adminEmail, auth, isFirebaseConfigured } from "@/lib/firebase";
 
 type AuthContextValue = {

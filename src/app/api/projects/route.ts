@@ -28,14 +28,14 @@ function getFirebaseAdmin() {
       
       if (serviceAccount.private_key && typeof serviceAccount.private_key === "string") {
         let key = serviceAccount.private_key;
-        key = key.replace(/\\n/g, "\n").replace(/\r\n/g, "\n");
-        key = key.split("\n").map((line: string) => line.trim()).filter(Boolean).join("\n");
         
-        if (!key.includes("-----BEGIN PRIVATE KEY-----")) {
-           key = `-----BEGIN PRIVATE KEY-----\n${key}`;
-        }
-        if (!key.includes("-----END PRIVATE KEY-----")) {
-           key = `${key}\n-----END PRIVATE KEY-----`;
+        // Normalize newlines: Convert literal "\\n" to actual newlines
+        key = key.replace(/\\n/g, "\n");
+        
+        // Only wrap in headers if they are completely missing.
+        // We check for "-----BEGIN" to avoid double-wrapping "RSA PRIVATE KEY" vs "PRIVATE KEY".
+        if (!key.includes("-----BEGIN")) {
+           key = `-----BEGIN PRIVATE KEY-----\n${key}\n-----END PRIVATE KEY-----`;
         }
         
         serviceAccount.private_key = key.trim() + "\n";

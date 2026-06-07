@@ -1,6 +1,6 @@
-import { FirebaseApp, getApp, getApps, initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { Firestore, getFirestore } from "firebase/firestore";
+import { FirebaseApp, getApp, getApps, initializeApp } from "@firebase/app";
+import { getAuth } from "@firebase/auth";
+import { Firestore, getFirestore } from "@firebase/firestore";
 
 type FirebaseConfig = {
   apiKey: string;

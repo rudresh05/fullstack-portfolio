@@ -18,34 +18,25 @@ function getFirebaseAdmin() {
     }
 
     try {
-      // 1. Remove any potential outer quotes if the user wrapped the whole JSON in them
       let cleanJson = rawServiceAccount.trim();
       if (cleanJson.startsWith("'") && cleanJson.endsWith("'")) cleanJson = cleanJson.slice(1, -1);
       if (cleanJson.startsWith('"') && cleanJson.endsWith('"')) cleanJson = cleanJson.slice(1, -1);
 
       let serviceAccount = JSON.parse(cleanJson);
-      
-      // Handle double-stringified JSON if it exists
       if (typeof serviceAccount === "string") {
         serviceAccount = JSON.parse(serviceAccount);
       }
       
-      // 2. Extremely robust private key cleaning
       if (serviceAccount.private_key && typeof serviceAccount.private_key === "string") {
         let key = serviceAccount.private_key;
         
-        // Convert all variations of newline sequences (\n, \\n, \r\n) to real newlines
-        key = key.replace(/\\n/g, "\n").replace(/\r\n/g, "\n");
+        // Normalize newlines: Convert literal "\\n" to actual newlines
+        key = key.replace(/\\n/g, "\n");
         
-        // Remove any unintentional leading/trailing spaces on each line
-        key = key.split("\n").map((line: string) => line.trim()).filter(Boolean).join("\n");
-        
-        // Ensure the header and footer are exactly right
-        if (!key.includes("-----BEGIN PRIVATE KEY-----")) {
-           key = `-----BEGIN PRIVATE KEY-----\n${key}`;
-        }
-        if (!key.includes("-----END PRIVATE KEY-----")) {
-           key = `${key}\n-----END PRIVATE KEY-----`;
+        // Only wrap in headers if they are completely missing.
+        // We check for "-----BEGIN" to avoid double-wrapping "RSA PRIVATE KEY" vs "PRIVATE KEY".
+        if (!key.includes("-----BEGIN")) {
+           key = `-----BEGIN PRIVATE KEY-----\n${key}\n-----END PRIVATE KEY-----`;
         }
         
         serviceAccount.private_key = key.trim() + "\n";
