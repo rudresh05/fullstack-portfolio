@@ -3,7 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase';
 
 export async function GET() {
   const { data, error } = await supabaseAdmin
-    .from('focus_ideas')
+    .from('focus_reviews')
     .select('*')
     .order('created_at', { ascending: false });
 
@@ -14,12 +14,16 @@ export async function GET() {
 export async function POST(request: Request) {
   const body = await request.json();
   const { data, error } = await supabaseAdmin
-    .from('focus_ideas')
+    .from('focus_reviews')
     .insert([
       {
-        title: body.title,
-        category: body.category,
-        description: body.description,
+        sprint_id: body.sprintId,
+        week_number: body.weekNumber,
+        what_worked: body.whatWorked,
+        what_failed: body.whatFailed,
+        biggest_distraction: body.biggestDistraction,
+        next_week_focus: body.nextWeekFocus,
+        date: body.date,
       },
     ])
     .select()
@@ -27,19 +31,4 @@ export async function POST(request: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data);
-}
-
-export async function DELETE(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const id = searchParams.get('id');
-  
-  if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
-
-  const { error } = await supabaseAdmin
-    .from('focus_ideas')
-    .delete()
-    .eq('id', id);
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ success: true });
 }

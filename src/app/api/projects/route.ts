@@ -1,12 +1,7 @@
 import { NextResponse } from 'next/server';
 import admin from 'firebase-admin';
-import { createClient } from '@supabase/supabase-js';
+import { supabaseAdmin } from '@/lib/supabase';
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
-const SUPABASE_KEY =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ??
-  (process.env.NODE_ENV !== 'production' ? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY : '') ??
-  '';
 const ADMIN_EMAIL = (process.env.NEXT_PUBLIC_ADMIN_EMAIL || '').trim().toLowerCase();
 
 function getFirebaseAdmin() {
@@ -91,28 +86,20 @@ async function requireAdmin(req: Request) {
   return null;
 }
 
-function getSupabase() {
-  if (!SUPABASE_URL || !SUPABASE_KEY) {
-    throw new Error('Supabase credentials are missing.');
-  }
-
-  return createClient(SUPABASE_URL, SUPABASE_KEY);
-}
-
 export async function POST(req: Request) {
   try {
     const authError = await requireAdmin(req);
     if (authError) return authError;
 
     const body = await req.json();
-    const supabase = getSupabase();
 
-    const { data, error } = await supabase.from('projects').insert([
+    const { data, error } = await supabaseAdmin.from('projects').insert([
       {
         title: body.title,
         description: body.description,
-        tech: body.tech,
+        tech: body.tech || [],
         link: body.link,
+        image_url: body.imageUrl || '',
         featured: body.featured || false,
       },
     ]);
@@ -130,8 +117,7 @@ export async function DELETE(req: Request) {
     if (authError) return authError;
 
     const { id } = await req.json();
-    const supabase = getSupabase();
-    const { error } = await supabase.from('projects').delete().eq('id', id);
+    const { error } = await supabaseAdmin.from('projects').delete().eq('id', id);
     if (error) return NextResponse.json({ error }, { status: 500 });
     return NextResponse.json({ ok: true });
   } catch (err) {

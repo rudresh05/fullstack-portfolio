@@ -1,11 +1,8 @@
 import { NextResponse } from "next/server";
 import admin from "firebase-admin";
-import { createClient } from "@supabase/supabase-js";
+import { supabase, supabaseAdmin } from "@/lib/supabase";
 import { sendJournalEmail } from "@/lib/email";
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-const SUPABASE_PUBLIC_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "";
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
 const ADMIN_EMAIL = (process.env.NEXT_PUBLIC_ADMIN_EMAIL ?? "").trim().toLowerCase();
 
 type ContentType = "projects" | "blogs" | "settings" | "journals";
@@ -22,10 +19,10 @@ function getFirebaseAdmin() {
       let jsonStr = rawServiceAccount.trim();
       if (jsonStr.startsWith("'") && jsonStr.endsWith("'")) jsonStr = jsonStr.slice(1, -1);
       if (jsonStr.startsWith('"') && jsonStr.endsWith('"')) jsonStr = jsonStr.slice(1, -1);
-      
+
       const config = JSON.parse(jsonStr);
       let pKey = config.private_key || config.privateKey;
-      
+
       if (!pKey || typeof pKey !== "string") {
         throw new Error("Private key is missing from service account config.");
       }
@@ -33,7 +30,7 @@ function getFirebaseAdmin() {
       // 2. Definitive PEM formatting for OpenSSL 3.0
       // Ensure literal \n in JSON string are converted to real newlines
       let formattedKey = pKey.replace(/\\n/g, "\n");
-      
+
       // Ensure the key starts and ends with proper headers (only if missing)
       if (!formattedKey.includes("-----BEGIN PRIVATE KEY-----")) {
         formattedKey = `-----BEGIN PRIVATE KEY-----\n${formattedKey}`;
@@ -41,7 +38,7 @@ function getFirebaseAdmin() {
       if (!formattedKey.includes("-----END PRIVATE KEY-----")) {
         formattedKey = `${formattedKey}\n-----END PRIVATE KEY-----\n`;
       }
-      
+
       // Remove any accidental double-wrapping or extra whitespace
       formattedKey = formattedKey.trim() + "\n";
 
@@ -61,39 +58,6 @@ function getFirebaseAdmin() {
   return admin;
 }
 
-function getSupabaseAdmin() {
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-    throw new Error("Supabase service credentials are missing.");
-  }
-
-  return createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
-    auth: { persistSession: false },
-  });
-}
-
-function getSupabaseReader() {
-  const key = SUPABASE_SERVICE_KEY || SUPABASE_PUBLIC_KEY;
-
-  if (!SUPABASE_URL || !key) {
-    throw new Error("Supabase credentials are missing.");
-  }
-
-  return createClient(SUPABASE_URL, key, {
-    auth: { persistSession: false },
-  });
-}
-
-function getSupabaseWriter() {
-  if (SUPABASE_SERVICE_KEY) return getSupabaseAdmin();
-  if (process.env.NODE_ENV !== "production") return getSupabaseReader();
-
-  throw new Error("SUPABASE_SERVICE_ROLE_KEY is missing.");
-}
-
-function canVerifyFirebaseToken() {
-  return Boolean(process.env.FIREBASE_SERVICE_ACCOUNT);
-}
-
 async function requireAdmin(request: Request) {
   // If we're in development and Firebase is being difficult, allow the write to proceed
   if (process.env.NODE_ENV === "development") {
@@ -110,7 +74,7 @@ async function requireAdmin(request: Request) {
   try {
     const adminApp = getFirebaseAdmin();
     const decoded = await adminApp.auth().verifyIdToken(token);
-    
+
     if (ADMIN_EMAIL && decoded.email?.trim().toLowerCase() !== ADMIN_EMAIL) {
       console.warn(`Access denied for ${decoded.email}. Admin email is ${ADMIN_EMAIL}.`);
       return NextResponse.json({ error: "Forbidden: You are not an admin." }, { status: 403 });
@@ -153,7 +117,7 @@ function rlsResponse() {
   return NextResponse.json(
     {
       error:
-        "Supabase RLS is blocking writes. Add SUPABASE_SERVICE_ROLE_KEY to .env.local, or disable RLS for these tables while developing.",
+        "Supabase RLS is blocking writes. Ensure SUPABASE_SERVICE_ROLE_KEY is correctly set in your environment.",
     },
     { status: 500 },
   );
@@ -167,8 +131,6 @@ export async function GET(request: Request) {
     if (type !== "projects" && type !== "blogs" && type !== "settings" && type !== "journals") {
       return NextResponse.json({ error: "Invalid content type" }, { status: 400 });
     }
-
-    const supabase = getSupabaseReader();
 
     if (type === "settings") {
       const key = searchParams.get("key");
@@ -198,10 +160,9 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const type = body.type as ContentType | "seed";
-    const supabase = getSupabaseWriter();
 
     if (type === "projects") {
-      const { error } = await supabase.from("projects").insert([
+      const { error } = await supabaseAdmin.from("projects").insert([
         {
           title: body.project?.title,
           description: body.project?.description,
@@ -219,7 +180,7 @@ export async function POST(request: Request) {
     }
 
     if (type === "blogs") {
-      const { error } = await supabase.from("blogs").insert([
+      const { error } = await supabaseAdmin.from("blogs").insert([
         {
           title: body.blog?.title,
           slug: body.blog?.slug,
@@ -240,7 +201,7 @@ export async function POST(request: Request) {
       const { key, value } = body;
       if (!key) return NextResponse.json({ error: "Missing setting key" }, { status: 400 });
 
-      const { error } = await supabase.from("settings").upsert({ key, value }, { onConflict: "key" });
+      const { error } = await supabaseAdmin.from("settings").upsert({ key, value }, { onConflict: "key" });
       if (error && isMissingTableError(error)) return missingSchemaResponse();
       if (error && isRlsError(error)) return rlsResponse();
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -248,7 +209,7 @@ export async function POST(request: Request) {
     }
 
     if (type === "journals") {
-      const { error } = await supabase.from("journals").upsert(
+      const { error } = await supabaseAdmin.from("journals").upsert(
         [
           {
             date: body.journal?.date,
@@ -291,7 +252,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Invalid delete request" }, { status: 400 });
     }
 
-    const { error } = await getSupabaseWriter().from(tableFor(type)).delete().eq("id", id);
+    const { error } = await supabaseAdmin.from(tableFor(type)).delete().eq("id", id);
     if (error && isMissingTableError(error)) return missingSchemaResponse();
     if (error && isRlsError(error)) return rlsResponse();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });

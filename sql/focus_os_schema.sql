@@ -8,6 +8,7 @@ create table if not exists public.focus_sprints (
   end_date date not null,
   is_active boolean not null default true,
   is_completed boolean not null default false,
+  tasks jsonb not null default '[]'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
