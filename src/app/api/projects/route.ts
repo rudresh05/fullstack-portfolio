@@ -1,59 +1,8 @@
 import { NextResponse } from 'next/server';
-import admin from 'firebase-admin';
+import { getFirebaseAdmin } from '@/lib/firebase-admin';
 import { supabaseAdmin } from '@/lib/supabase';
 
 const ADMIN_EMAIL = (process.env.NEXT_PUBLIC_ADMIN_EMAIL || '').trim().toLowerCase();
-
-function getFirebaseAdmin() {
-  if (!admin.apps.length) {
-    const rawServiceAccount = process.env.FIREBASE_SERVICE_ACCOUNT;
-    if (!rawServiceAccount) {
-      throw new Error("FIREBASE_SERVICE_ACCOUNT environment variable is missing.");
-    }
-
-    try {
-      // 1. Clean accidental quotes around the whole JSON string
-      let jsonStr = rawServiceAccount.trim();
-      if (jsonStr.startsWith("'") && jsonStr.endsWith("'")) jsonStr = jsonStr.slice(1, -1);
-      if (jsonStr.startsWith('"') && jsonStr.endsWith('"')) jsonStr = jsonStr.slice(1, -1);
-      
-      const config = JSON.parse(jsonStr);
-      let pKey = config.private_key || config.privateKey;
-      
-      if (!pKey || typeof pKey !== "string") {
-        throw new Error("Private key is missing from service account config.");
-      }
-
-      // 2. Definitive PEM formatting for OpenSSL 3.0
-      // Ensure literal \n in JSON string are converted to real newlines
-      let formattedKey = pKey.replace(/\\n/g, "\n");
-      
-      // Ensure the key starts and ends with proper headers (only if missing)
-      if (!formattedKey.includes("-----BEGIN PRIVATE KEY-----")) {
-        formattedKey = `-----BEGIN PRIVATE KEY-----\n${formattedKey}`;
-      }
-      if (!formattedKey.includes("-----END PRIVATE KEY-----")) {
-        formattedKey = `${formattedKey}\n-----END PRIVATE KEY-----\n`;
-      }
-      
-      // Remove any accidental double-wrapping or extra whitespace
-      formattedKey = formattedKey.trim() + "\n";
-
-      admin.initializeApp({
-        credential: admin.credential.cert({
-          projectId: config.project_id || config.projectId,
-          clientEmail: config.client_email || config.clientEmail,
-          privateKey: formattedKey,
-        }),
-      });
-    } catch (err) {
-      console.error("Firebase Initialization Error:", err);
-      throw new Error(`Failed to initialize Firebase Admin: ${err instanceof Error ? err.message : String(err)}`);
-    }
-  }
-
-  return admin;
-}
 
 async function requireAdmin(req: Request) {
   if (process.env.NODE_ENV === "development") {
@@ -74,12 +23,17 @@ async function requireAdmin(req: Request) {
     if (ADMIN_EMAIL && decoded.email?.toLowerCase() !== ADMIN_EMAIL) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Firebase Verification Error:", err);
+    const message = err instanceof Error ? err.message : String(err);
+    const code =
+      typeof err === "object" && err !== null && "code" in err
+        ? (err as { code?: unknown }).code
+        : undefined;
     return NextResponse.json({ 
       error: "Authentication failed", 
-      message: err.message,
-      code: err.code 
+      message,
+      code,
     }, { status: 401 });
   }
 

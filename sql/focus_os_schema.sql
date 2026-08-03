@@ -19,6 +19,19 @@ create table if not exists public.focus_ideas (
   title text not null,
   category text not null default 'Other',
   description text,
+  status text not null default 'New',
+  validation_score integer not null default 0,
+  questionnaire jsonb default '{}'::jsonb,
+  customer_validation jsonb default '{
+    "contacted": 0,
+    "calls": 0,
+    "emails": 0,
+    "meetings": 0,
+    "positiveResponses": 0,
+    "negativeResponses": 0,
+    "notes": ""
+  }'::jsonb,
+  overrides_count integer not null default 0,
   created_at timestamptz not null default now()
 );
 
@@ -47,6 +60,19 @@ create table if not exists public.focus_reviews (
 
 -- 2. Safely add columns if the tables already existed before (Migration)
 ALTER TABLE public.focus_sprints ADD COLUMN IF NOT EXISTS tasks jsonb NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE public.focus_ideas ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'New';
+ALTER TABLE public.focus_ideas ADD COLUMN IF NOT EXISTS validation_score integer NOT NULL DEFAULT 0;
+ALTER TABLE public.focus_ideas ADD COLUMN IF NOT EXISTS questionnaire jsonb DEFAULT '{}'::jsonb;
+ALTER TABLE public.focus_ideas ADD COLUMN IF NOT EXISTS customer_validation jsonb DEFAULT '{
+    "contacted": 0,
+    "calls": 0,
+    "emails": 0,
+    "meetings": 0,
+    "positiveResponses": 0,
+    "negativeResponses": 0,
+    "notes": ""
+  }'::jsonb;
+ALTER TABLE public.focus_ideas ADD COLUMN IF NOT EXISTS overrides_count integer NOT NULL DEFAULT 0;
 
 -- 3. Enable RLS
 alter table public.focus_sprints enable row level security;
@@ -63,6 +89,7 @@ drop policy if exists "Public read focus_reviews" on public.focus_reviews;
 drop policy if exists "Admin insert focus_sprints" on public.focus_sprints;
 drop policy if exists "Admin update focus_sprints" on public.focus_sprints;
 drop policy if exists "Admin insert focus_ideas" on public.focus_ideas;
+drop policy if exists "Admin update focus_ideas" on public.focus_ideas;
 drop policy if exists "Admin delete focus_ideas" on public.focus_ideas;
 drop policy if exists "Admin insert focus_tracking" on public.focus_tracking;
 drop policy if exists "Admin update focus_tracking" on public.focus_tracking;
@@ -77,6 +104,7 @@ create policy "Public read focus_reviews" on public.focus_reviews for select usi
 create policy "Admin insert focus_sprints" on public.focus_sprints for insert with check (true);
 create policy "Admin update focus_sprints" on public.focus_sprints for update using (true);
 create policy "Admin insert focus_ideas" on public.focus_ideas for insert with check (true);
+create policy "Admin update focus_ideas" on public.focus_ideas for update using (true);
 create policy "Admin delete focus_ideas" on public.focus_ideas for delete using (true);
 create policy "Admin insert focus_tracking" on public.focus_tracking for insert with check (true);
 create policy "Admin update focus_tracking" on public.focus_tracking for update using (true);

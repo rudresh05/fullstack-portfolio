@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI/ML Daily Journal</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0A0C10;
+    --surface: #0F1218;
+    --surface2: #151A22;
+    --surface3: #1C2330;
+    --border: #1E2736;
+    --border2: #253044;
+    --text: #E8EDF5;
+    --text2: #8B95A8;
+    --text3: #4A5568;
+    --accent: #3B6EF8;
+    --accent-dim: #1E3A8A22;
+    --accent-soft: #3B6EF822;
+    --green: #10B981;
+    --green-dim: #10B98120;
+    --red: #EF4444;
+    --red-dim: #EF444420;
+    --amber: #F59E0B;
+    --amber-dim: #F59E0B20;
+    --purple: #8B5CF6;
+    --purple-dim: #8B5CF620;
+    --cyan: #06B6D4;
+    --cyan-dim: #06B6D420;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+  }
+
+  /* SIDEBAR */
+  .sidebar {
+    width: 280px;
+    min-height: 100vh;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 28px 20px;
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 28px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo-icon {
+    width: 34px;
+    height: 34px;
+    background: var(--accent);
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+
+  .logo-text { font-size: 14px; font-weight: 700; color: var(--text); letter-spacing: -0.3px; }
+  .logo-sub { font-size: 11px; color: var(--text3); margin-top: 1px; }
+
+  .sidebar-date {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    margin-bottom: 16px;
+  }
+
+  .sidebar-date label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600; display: block; margin-bottom: 8px; }
+  .sidebar-date input[type="date"] {
+    width: 100%;
+    background: var(--surface3);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
+    color: var(--text);
+    font-size: 13px;
+    font-family: 'Inter', sans-serif;
+    outline: none;
+    cursor: pointer;
+  }
+  .sidebar-date input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1) opacity(0.4); cursor: pointer; }
+
+  .stage-selector {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    margin-bottom: 16px;
+  }
+  .stage-selector label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600; display: block; margin-bottom: 8px; }
+  .stage-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    padding: 5px 10px;
+    border-radius: 99px;
+    font-size: 11px;
+    font-weight: 500;
+    border: 1px solid var(--border2);
+    background: transparent;
+    color: var(--text2);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .chip:hover { border-color: var(--accent); color: var(--accent); }
+  .chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  .progress-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    margin-bottom: 16px;
+  }
+  .progress-card label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600; display: block; margin-bottom: 10px; }
+  .progress-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .progress-label { font-size: 12px; color: var(--text2); }
+  .progress-val { font-size: 12px; font-weight: 600; color: var(--text); font-family: 'JetBrains Mono', monospace; }
+  .progress-bar { height: 4px; background: var(--surface3); border-radius: 99px; overflow: hidden; margin-bottom: 10px; }
+  .progress-fill { height: 100%; background: var(--accent); border-radius: 99px; transition: width 0.4s ease; }
+
+  .sidebar-nav { display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; }
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    color: var(--text2);
+    cursor: pointer;
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+    transition: all 0.1s;
+  }
+  .nav-item:hover { background: var(--surface2); color: var(--text); }
+  .nav-item.active { background: var(--accent-soft); color: var(--accent); font-weight: 500; }
+  .nav-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+
+  .sidebar-actions { margin-top: auto; display: flex; flex-direction: column; gap: 8px; }
+
+  .btn-primary {
+    width: 100%;
+    padding: 11px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    transition: opacity 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+  }
+  .btn-primary:hover { opacity: 0.9; }
+
+  .btn-secondary {
+    width: 100%;
+    padding: 9px;
+    background: transparent;
+    color: var(--text2);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+  }
+  .btn-secondary:hover { background: var(--surface2); color: var(--text); }
+
+  /* MAIN */
+  .main { flex: 1; padding: 32px; overflow-y: auto; max-width: 900px; }
+
+  .page-header { margin-bottom: 32px; }
+  .page-tag { font-size: 10px; color: var(--accent); text-transform: uppercase; letter-spacing: 2px; font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .page-tag::before { content: ''; width: 20px; height: 1px; background: var(--accent); display: inline-block; }
+  .page-title { font-size: 32px; font-weight: 900; color: var(--text); letter-spacing: -1px; line-height: 1.1; }
+  .page-title span { color: var(--accent); }
+  .page-sub { font-size: 14px; color: var(--text2); margin-top: 6px; line-height: 1.6; }
+
+  /* SECTION */
+  .section { margin-bottom: 28px; }
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-icon { width: 28px; height: 28px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0; }
+  .section-label { font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
+  .section-title { font-size: 18px; font-weight: 800; color: var(--text); letter-spacing: -0.5px; }
+
+  /* accent colors per section */
+  .s-output .section-icon { background: var(--accent-soft); }
+  .s-output .section-label { color: var(--accent); }
+  .s-wins .section-icon { background: var(--green-dim); }
+  .s-wins .section-label { color: var(--green); }
+  .s-leaks .section-icon { background: var(--red-dim); }
+  .s-leaks .section-label { color: var(--red); }
+  .s-reality .section-icon { background: var(--amber-dim); }
+  .s-reality .section-label { color: var(--amber); }
+  .s-metrics .section-icon { background: var(--purple-dim); }
+  .s-metrics .section-label { color: var(--purple); }
+  .s-tomorrow .section-icon { background: var(--cyan-dim); }
+  .s-tomorrow .section-label { color: var(--cyan); }
+  .s-final .section-icon { background: var(--surface3); }
+  .s-final .section-label { color: var(--text2); }
+
+  /* GRID */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+
+  /* FIELD CARD */
+  .field-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    transition: border-color 0.15s;
+  }
+  .field-card:focus-within { border-color: var(--border2); }
+  .field-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+  .field-sub { font-size: 11px; color: var(--text3); margin-bottom: 10px; line-height: 1.4; }
+
+  textarea, input[type="text"], input[type="number"] {
+    width: 100%;
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 9px 11px;
+    color: var(--text);
+    font-size: 13px;
+    font-family: 'Inter', sans-serif;
+    outline: none;
+    resize: none;
+    transition: border-color 0.15s;
+    line-height: 1.5;
+  }
+  textarea:focus, input[type="text"]:focus, input[type="number"]:focus { border-color: var(--accent); }
+  textarea::placeholder, input::placeholder { color: var(--text3); }
+
+  /* METRICS ROW */
+  .metrics-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+  .metric-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 12px;
+    text-align: center;
+  }
+  .metric-icon { font-size: 16px; margin-bottom: 6px; }
+  .metric-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; margin-bottom: 8px; }
+  .metric-box input {
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 15px;
+    font-weight: 600;
+    padding: 6px 8px;
+    background: var(--surface3);
+  }
+
+  /* TOMORROW NON-NEGOTIABLES */
+  .nonneg-list { display: flex; flex-direction: column; gap: 8px; }
+  .nonneg-item { display: flex; align-items: center; gap: 10px; }
+  .nonneg-num {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .nonneg-item input { flex: 1; }
+
+  /* MOOD ROW */
+  .mood-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .mood-btn {
+    padding: 7px 14px;
+    border-radius: 99px;
+    border: 1px solid var(--border2);
+    background: transparent;
+    font-size: 13px;
+    cursor: pointer;
+    color: var(--text2);
+    font-family: 'Inter', sans-serif;
+    transition: all 0.15s;
+  }
+  .mood-btn:hover { border-color: var(--accent); }
+  .mood-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  /* DSA TRACKER */
+  .dsa-row { display: flex; gap: 10px; }
+  .dsa-box {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    text-align: center;
+  }
+  .dsa-box label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 8px; font-weight: 600; }
+  .dsa-box input { text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 700; color: var(--accent); background: var(--surface3); border: 1px solid var(--border); }
+
+  /* RECALL CHECK */
+  .recall-row { display: flex; gap: 8px; }
+  .recall-btn {
+    flex: 1;
+    padding: 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border2);
+    background: transparent;
+    color: var(--text2);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    transition: all 0.15s;
+  }
+  .recall-btn:hover { border-color: var(--border2); }
+  .recall-btn.yes { background: var(--green-dim); border-color: var(--green); color: var(--green); }
+  .recall-btn.no { background: var(--red-dim); border-color: var(--red); color: var(--red); }
+
+  /* HONEST SENTENCE */
+  .honest-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+  }
+  .honest-card textarea { font-size: 15px; font-weight: 500; min-height: 80px; }
+
+  /* HISTORY */
+  .history-panel { display: none; }
+  .history-panel.active { display: block; }
+  .entry-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 10px;
+  }
+  .entry-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .entry-date-tag { font-size: 11px; color: var(--text3); font-family: 'JetBrains Mono', monospace; }
+  .stage-badge {
+    font-size: 11px;
+    padding: 3px 9px;
+    border-radius: 99px;
+    font-weight: 600;
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  .entry-row { font-size: 12px; color: var(--text2); margin-bottom: 4px; }
+  .entry-row strong { color: var(--text); }
+  .del-btn { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 16px; padding: 2px 5px; border-radius: 4px; }
+  .del-btn:hover { background: var(--red-dim); color: var(--red); }
+
+  /* TOAST */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--green);
+    color: #fff;
+    padding: 12px 20px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 600;
+    z-index: 999;
+    display: none;
+    animation: slideUp 0.2s ease;
+  }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--text3); font-size: 13px; }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 99px; }
+
+  /* DIVIDER */
+  .divider { height: 1px; background: var(--border); margin: 6px 0 16px; }
+
+  @media (max-width: 900px) {
+    .sidebar { display: none; }
+    .main { padding: 20px; }
+    .grid-2 { grid-template-columns: 1fr; }
+    .metrics-row { grid-template-columns: repeat(3, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-icon">🧠</div>
+    <div>
+      <div class="logo-text">AI/ML Journal</div>
+      <div class="logo-sub">Daily proof of work</div>
+    </div>
+  </div>
+
+  <div class="sidebar-date">
+    <label>Date</label>
+    <input type="date" id="entry-date" />
+  </div>
+
+  <div class="stage-selector">
+    <label>Today's stage</label>
+    <div class="stage-chips">
+      <button class="chip active" onclick="selectChip(this, 'stage')">🐍 Python</button>
+      <button class="chip" onclick="selectChip(this, 'stage')">📊 Data Science</button>
+      <button class="chip" onclick="selectChip(this, 'stage')">🤖 ML</button>
+      <button class="chip" onclick="selectChip(this, 'stage')">🧠 Deep Learning</button>
+      <button class="chip" onclick="selectChip(this, 'stage')">✨ GenAI</button>
+      <button class="chip" onclick="selectChip(this, 'stage')">⚡ DSA</button>
+      <button class="chip" onclick="selectChip(this, 'stage')">🏗️ System Design</button>
+    </div>
+  </div>
+
+  <div class="progress-card">
+    <label>Session progress</label>
+    <div class="progress-row">
+      <span class="progress-label">Fields filled</span>
+      <span class="progress-val" id="progress-val">0/15</span>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <button class="nav-item active" onclick="showPanel('form', this)"><span class="nav-dot"></span>Today's entry</button>
+    <button class="nav-item" onclick="showPanel('history', this)"><span class="nav-dot"></span>History</button>
+  </nav>
+
+  <div class="sidebar-actions">
+    <button class="btn-primary" onclick="saveEntry()">✓ &nbsp;Save entry</button>
+    <button class="btn-secondary" onclick="copyMarkdown()">⎘ &nbsp;Copy markdown</button>
+    <button class="btn-secondary" onclick="resetForm()">↺ &nbsp;Reset form</button>
+  </div>
+</aside>
+
+<!-- MAIN CONTENT -->
+<main class="main">
+
+  <!-- FORM PANEL -->
+  <div id="panel-form">
+
+    <!-- HEADER -->
+    <div class="page-header">
+      <div class="page-tag">Daily Ledger</div>
+      <div class="page-title">Audit today.<br><span>Build tomorrow.</span></div>
+      <div class="page-sub">Raw, structured proof of what you actually did. No performance. No spin.</div>
+    </div>
+
+    <!-- OUTPUT -->
+    <div class="section s-output">
+      <div class="section-header">
+        <div class="section-icon">⚙️</div>
+        <div>
+          <div class="section-label">Output</div>
+          <div class="section-title">What did I actually do today?</div>
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom:12px;">
+        <div class="field-card">
+          <div class="field-title">Topic studied</div>
+          <div class="field-sub">Specific concept or problem — not just "Python"</div>
+          <input type="text" id="f-topic" placeholder="e.g. RAG pipeline, Binary Search, Pandas groupby..." oninput="updateProgress()" />
+        </div>
+        <div class="field-card">
+          <div class="field-title">Work / office tasks</div>
+          <div class="field-sub">AI pipeline tasks, features shipped, PRs done</div>
+          <textarea id="f-work" rows="3" placeholder="What did you build, fix or deploy at work today?" oninput="updateProgress()"></textarea>
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom:12px;">
+        <div class="field-card">
+          <div class="field-title">What I learned</div>
+          <div class="field-sub">Key concepts that actually clicked</div>
+          <textarea id="f-learned" rows="3" placeholder="The insight, the aha moment, the thing that now makes sense..." oninput="updateProgress()"></textarea>
+        </div>
+        <div class="field-card">
+          <div class="field-title">What I built / coded</div>
+          <div class="field-sub">Code written, scripts, mini-projects, experiments</div>
+          <textarea id="f-built" rows="3" placeholder="Functions, classes, pipelines, API integrations..." oninput="updateProgress()"></textarea>
+        </div>
+      </div>
+
+      <!-- RECALL CHECK -->
+      <div class="field-card">
+        <div class="field-title">Coded from memory?</div>
+        <div class="field-sub">Did you write any code without copy-pasting from AI or docs? (Our most important habit)</div>
+        <div class="recall-row" id="recall-row">
+          <button class="recall-btn" onclick="selectRecall(this, 'yes')">✓ Yes — wrote from memory</button>
+          <button class="recall-btn" onclick="selectRecall(this, 'partial')">⚡ Partially — needed some hints</button>
+          <button class="recall-btn" onclick="selectRecall(this, 'no')">✗ No — relied on AI/docs fully</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- DSA TRACKER -->
+    <div class="section s-output">
+      <div class="section-header">
+        <div class="section-icon">⚡</div>
+        <div>
+          <div class="section-label">DSA</div>
+          <div class="section-title">Striver sheet progress</div>
+        </div>
+      </div>
+      <div class="dsa-row">
+        <div class="dsa-box">
+          <label>Problems attempted</label>
+          <input type="number" id="f-dsa-attempted" min="0" placeholder="0" oninput="updateProgress()" />
+        </div>
+        <div class="dsa-box">
+          <label>Problems solved</label>
+          <input type="number" id="f-dsa-solved" min="0" placeholder="0" oninput="updateProgress()" />
+        </div>
+        <div class="field-card" style="flex:2; margin:0;">
+          <div class="field-title">DSA topic / problem</div>
+          <div class="field-sub">What pattern or problem set</div>
+          <input type="text" id="f-dsa-topic" placeholder="e.g. Two Pointer, Arrays — Kadane's Algorithm..." oninput="updateProgress()" />
+        </div>
+      </div>
+    </div>
+
+    <!-- WINS -->
+    <div class="section s-wins">
+      <div class="section-header">
+        <div class="section-icon">✅</div>
+        <div>
+          <div class="section-label">Wins</div>
+          <div class="section-title">What moved me closer today?</div>
+        </div>
+      </div>
+      <div class="field-card">
+        <div class="field-title">Win log</div>
+        <div class="field-sub">Record exact actions, not feelings. "I understood backpropagation math" not "I felt productive"</div>
+        <textarea id="f-wins" rows="4" placeholder="The specific actions that compounded today — however small..." oninput="updateProgress()"></textarea>
+      </div>
+    </div>
+
+    <!-- LEAKS -->
+    <div class="section s-leaks">
+      <div class="section-header">
+        <div class="section-icon">⚠️</div>
+        <div>
+          <div class="section-label">Leaks</div>
+          <div class="section-title">Where did I waste time?</div>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="field-card">
+          <div class="field-title">Time waste</div>
+          <div class="field-sub">Apps, scrolling, distraction loops</div>
+          <textarea id="f-waste" rows="3" placeholder="What diverted my focus today?" oninput="updateProgress()"></textarea>
+        </div>
+        <div class="field-card">
+          <div class="field-title">Avoided task</div>
+          <div class="field-sub">The uncomfortable thing I kept skipping</div>
+          <textarea id="f-avoided" rows="3" placeholder="What did I keep pushing to tomorrow?" oninput="updateProgress()"></textarea>
+        </div>
+      </div>
+      <div class="field-card" style="margin-top:12px;">
+        <div class="field-title">Stuck on</div>
+        <div class="field-sub">Concepts still unclear, bugs unresolved, things to revisit</div>
+        <textarea id="f-stuck" rows="2" placeholder="What's still blocked? Write it here so tomorrow-you can tackle it directly..." oninput="updateProgress()"></textarea>
+      </div>
+    </div>
+
+    <!-- REALITY CHECK -->
+    <div class="section s-reality">
+      <div class="section-header">
+        <div class="section-icon">🎯</div>
+        <div>
+          <div class="section-label">Reality Check</div>
+          <div class="section-title">Am I behaving like the engineer I want to be?</div>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="field-card">
+          <div class="field-title">Google-standard check</div>
+          <div class="field-sub">Honest audit against your 4-year goal</div>
+          <textarea id="f-standard" rows="4" placeholder="Did today's effort match where you want to be in 4 years? Be honest." oninput="updateProgress()"></textarea>
+        </div>
+        <div class="field-card">
+          <div class="field-title">Holding pattern</div>
+          <div class="field-sub">Habit or behavior slowing you down</div>
+          <textarea id="f-holding" rows="4" placeholder="What behavior is holding you back from being the engineer you want to be?" oninput="updateProgress()"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- METRICS -->
+    <div class="section s-metrics">
+      <div class="section-header">
+        <div class="section-icon">📊</div>
+        <div>
+          <div class="section-label">Metrics</div>
+          <div class="section-title">Track the daily scoreboard</div>
+        </div>
+      </div>
+      <div class="metrics-row">
+        <div class="metric-box">
+          <div class="metric-icon">⏱️</div>
+          <div class="metric-label">Deep work (hrs)</div>
+          <input type="number" id="m-deepwork" min="0" max="12" step="0.5" placeholder="0" oninput="updateProgress()" />
+        </div>
+        <div class="metric-box">
+          <div class="metric-icon">💪</div>
+          <div class="metric-label">Gym</div>
+          <input type="text" id="m-gym" placeholder="Done / Skip" oninput="updateProgress()" />
+        </div>
+        <div class="metric-box">
+          <div class="metric-icon">⚡</div>
+          <div class="metric-label">DSA problems</div>
+          <input type="number" id="m-dsa" min="0" placeholder="0" oninput="updateProgress()" />
+        </div>
+        <div class="metric-box">
+          <div class="metric-icon">🧠</div>
+          <div class="metric-label">Topics done</div>
+          <input type="number" id="m-topics" min="0" placeholder="0" oninput="updateProgress()" />
+        </div>
+        <div class="metric-box">
+          <div class="metric-icon">🔋</div>
+          <div class="metric-label">Energy (1-10)</div>
+          <input type="number" id="m-energy" min="1" max="10" placeholder="7" oninput="updateProgress()" />
+        </div>
+      </div>
+
+      <!-- MOOD -->
+      <div class="field-card" style="margin-top:12px;">
+        <div class="field-title">Mood today</div>
+        <div class="field-sub">Be accurate, not aspirational</div>
+        <div class="mood-row">
+          <button class="mood-btn" onclick="selectMood(this)">😵 Burned out</button>
+          <button class="mood-btn" onclick="selectMood(this)">😐 Flat</button>
+          <button class="mood-btn" onclick="selectMood(this)">🙂 Okay</button>
+          <button class="mood-btn" onclick="selectMood(this)">💪 Focused</button>
+          <button class="mood-btn" onclick="selectMood(this)">🔥 In the zone</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TOMORROW -->
+    <div class="section s-tomorrow">
+      <div class="section-header">
+        <div class="section-icon">🚀</div>
+        <div>
+          <div class="section-label">Tomorrow</div>
+          <div class="section-title">Non-negotiables for tomorrow</div>
+        </div>
+      </div>
+      <div class="field-card" style="margin-bottom:12px;">
+        <div class="field-title">Tomorrow's topic / plan</div>
+        <div class="field-sub">Specific — not "study Python" but "complete OOP section + 2 LeetCode mediums"</div>
+        <input type="text" id="f-tomorrow" placeholder="Exact next step — what will you open first tomorrow morning?" oninput="updateProgress()" />
+      </div>
+      <div class="field-card">
+        <div class="field-title">3 non-negotiables</div>
+        <div class="field-sub">These must happen no matter what</div>
+        <div class="nonneg-list">
+          <div class="nonneg-item"><div class="nonneg-num">1</div><input type="text" id="f-obj1" placeholder="First non-negotiable..." oninput="updateProgress()" /></div>
+          <div class="nonneg-item"><div class="nonneg-num">2</div><input type="text" id="f-obj2" placeholder="Second non-negotiable..." oninput="updateProgress()" /></div>
+          <div class="nonneg-item"><div class="nonneg-num">3</div><input type="text" id="f-obj3" placeholder="Third non-negotiable..." oninput="updateProgress()" /></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LESSON -->
+    <div class="section s-final">
+      <div class="section-header">
+        <div class="section-icon">💡</div>
+        <div>
+          <div class="section-label">Lesson + Final note</div>
+          <div class="section-title">What should future me remember?</div>
+        </div>
+      </div>
+      <div class="grid-2" style="margin-bottom:12px;">
+        <div class="field-card">
+          <div class="field-title">Key lesson</div>
+          <div class="field-sub">One practical insight you'd want to re-read in 6 months</div>
+          <textarea id="f-lesson" rows="4" placeholder="The one takeaway from today that actually mattered..." oninput="updateProgress()"></textarea>
+        </div>
+        <div class="field-card">
+          <div class="field-title">Pattern identified</div>
+          <div class="field-sub">A code pattern, algorithm pattern, or behavior pattern noticed</div>
+          <textarea id="f-pattern" rows="4" placeholder="e.g. Sliding window always works when you need a contiguous subarray of size k..." oninput="updateProgress()"></textarea>
+        </div>
+      </div>
+      <div class="honest-card">
+        <div class="field-title" style="margin-bottom:4px;">One brutally honest sentence</div>
+        <div class="field-sub" style="margin-bottom:10px;">No performance. No validation. Just the raw truth about today.</div>
+        <textarea id="f-honest" rows="3" placeholder="Write the one sentence future you needs to hear about today's effort..." oninput="updateProgress()"></textarea>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- HISTORY PANEL -->
+  <div id="panel-history" style="display:none;">
+    <div class="page-header">
+      <div class="page-tag">Archive</div>
+      <div class="page-title">History</div>
+      <div class="page-sub">All your saved journal entries</div>
+    </div>
+    <div id="history-list"></div>
+  </div>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const STORAGE_KEY = 'aiml_journal_v2';
+let entries = [];
+let selectedStage = '🐍 Python';
+let selectedMoodVal = '';
+let selectedRecall = '';
+
+function init() {
+  try { entries = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch(e) { entries = []; }
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('entry-date').value = today;
+  updateProgress();
+}
+
+function selectChip(btn, group) {
+  btn.closest('.stage-chips').querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  selectedStage = btn.textContent.trim();
+}
+
+function selectMood(btn) {
+  document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  selectedMoodVal = btn.textContent.trim();
+}
+
+function selectRecall(btn, type) {
+  document.querySelectorAll('.recall-btn').forEach(b => { b.classList.remove('yes','no'); b.style.background=''; b.style.borderColor=''; b.style.color=''; });
+  btn.classList.add(type === 'yes' ? 'yes' : type === 'no' ? 'no' : 'yes');
+  if (type === 'partial') {
+    btn.style.background = 'var(--amber-dim)';
+    btn.style.borderColor = 'var(--amber)';
+    btn.style.color = 'var(--amber)';
+  }
+  selectedRecall = btn.textContent.trim();
+  updateProgress();
+}
+
+const FIELDS = ['f-topic','f-work','f-learned','f-built','f-wins','f-waste','f-avoided','f-stuck','f-standard','f-holding','f-tomorrow','f-obj1','f-obj2','f-obj3','f-lesson','f-pattern','f-honest','f-dsa-topic','m-deepwork'];
+
+function updateProgress() {
+  const filled = FIELDS.filter(id => {
+    const el = document.getElementById(id);
+    return el && el.value.trim().length > 0;
+  }).length;
+  const total = FIELDS.length;
+  const pct = Math.round((filled / total) * 100);
+  document.getElementById('progress-val').textContent = `${filled}/${total}`;
+  document.getElementById('progress-fill').style.width = pct + '%';
+}
+
+function getFormData() {
+  const data = {};
+  FIELDS.forEach(id => { const el = document.getElementById(id); if(el) data[id] = el.value.trim(); });
+  data['f-dsa-attempted'] = document.getElementById('f-dsa-attempted')?.value || '';
+  data['f-dsa-solved'] = document.getElementById('f-dsa-solved')?.value || '';
+  data['m-gym'] = document.getElementById('m-gym')?.value || '';
+  data['m-dsa'] = document.getElementById('m-dsa')?.value || '';
+  data['m-topics'] = document.getElementById('m-topics')?.value || '';
+  data['m-energy'] = document.getElementById('m-energy')?.value || '';
+  data.stage = selectedStage;
+  data.mood = selectedMoodVal;
+  data.recall = selectedRecall;
+  data.date = document.getElementById('entry-date').value;
+  return data;
+}
+
+function saveEntry() {
+  const data = getFormData();
+  if (!data['f-topic'] && !data['f-learned']) {
+    showToast('Fill in at least topic and what you learned', false);
+    return;
+  }
+  const entry = { id: Date.now(), ...data };
+  entries.unshift(entry);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+  showToast('Entry saved!', true);
+}
+
+function resetForm() {
+  FIELDS.forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+  ['f-dsa-attempted','f-dsa-solved','m-gym','m-dsa','m-topics','m-energy'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+  document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.recall-btn').forEach(b => { b.classList.remove('yes','no'); b.style.cssText=''; });
+  selectedMoodVal = ''; selectedRecall = '';
+  updateProgress();
+}
+
+function copyMarkdown() {
+  const d = getFormData();
+  const md = `# AI/ML Journal — ${d.date}
+**Stage:** ${d.stage} | **Mood:** ${d.mood} | **Recall:** ${d.recall}
+
+## Output
+**Topic:** ${d['f-topic']}
+**Work done:** ${d['f-work']}
+**Learned:** ${d['f-learned']}
+**Built:** ${d['f-built']}
+
+## DSA
+- Attempted: ${d['f-dsa-attempted']} | Solved: ${d['f-dsa-solved']}
+- Topic: ${d['f-dsa-topic']}
+
+## Wins
+${d['f-wins']}
+
+## Leaks
+**Time waste:** ${d['f-waste']}
+**Avoided:** ${d['f-avoided']}
+**Stuck on:** ${d['f-stuck']}
+
+## Reality Check
+**Google-standard:** ${d['f-standard']}
+**Holding pattern:** ${d['f-holding']}
+
+## Metrics
+Deep work: ${d['m-deepwork']}h | Gym: ${d['m-gym']} | DSA: ${d['m-dsa']} problems | Energy: ${d['m-energy']}/10
+
+## Tomorrow
+${d['f-tomorrow']}
+1. ${d['f-obj1']}
+2. ${d['f-obj2']}
+3. ${d['f-obj3']}
+
+## Lesson
+${d['f-lesson']}
+
+## Pattern
+${d['f-pattern']}
+
+## Honest note
+${d['f-honest']}
+`;
+  navigator.clipboard.writeText(md);
+  showToast('Copied as markdown!', true);
+}
+
+function showPanel(panel, btn) {
+  document.getElementById('panel-form').style.display = panel === 'form' ? 'block' : 'none';
+  document.getElementById('panel-history').style.display = panel === 'history' ? 'block' : 'none';
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  if(panel === 'history') renderHistory();
+}
+
+function renderHistory() {
+  const el = document.getElementById('history-list');
+  if (!entries.length) { el.innerHTML = '<div class="empty-state">No entries yet. Save your first journal entry.</div>'; return; }
+  el.innerHTML = entries.map(e => `
+    <div class="entry-card">
+      <div class="entry-card-header">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="entry-date-tag">${e.date}</span>
+          <span class="stage-badge">${e.stage || ''}</span>
+          ${e.mood ? `<span style="font-size:16px;">${e.mood}</span>` : ''}
+        </div>
+        <button class="del-btn" onclick="deleteEntry(${e.id})">×</button>
+      </div>
+      ${e['f-topic'] ? `<div class="entry-row"><strong>${e['f-topic']}</strong></div>` : ''}
+      ${e['f-learned'] ? `<div class="entry-row" style="margin-top:6px;"><strong style="color:var(--green);">Learned:</strong> ${e['f-learned'].substring(0,200)}${e['f-learned'].length > 200 ? '...' : ''}</div>` : ''}
+      ${e['f-dsa-solved'] ? `<div class="entry-row"><strong style="color:var(--accent);">DSA:</strong> ${e['f-dsa-solved']} solved / ${e['f-dsa-attempted']} attempted</div>` : ''}
+      ${e.recall ? `<div class="entry-row"><strong>Memory coding:</strong> ${e.recall}</div>` : ''}
+      ${e['f-honest'] ? `<div class="entry-row" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-style:italic;color:var(--text2);">"${e['f-honest'].substring(0,150)}${e['f-honest'].length > 150 ? '...' : ''}"</div>` : ''}
+    </div>
+  `).join('');
+}
+
+function deleteEntry(id) {
+  entries = entries.filter(e => e.id !== id);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+  renderHistory();
+}
+
+function showToast(msg, success = true) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = success ? 'var(--green)' : 'var(--red)';
+  t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', 2500);
+}
+
+init();
+</script>
+</body>
+</html>
