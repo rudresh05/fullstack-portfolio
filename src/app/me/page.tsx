@@ -7,17 +7,27 @@ import { Experience3D } from "@/components/relationship/Experience3D";
 import { useRelationship } from "@/components/relationship/relationship-provider";
 import { MusicWidget } from "@/components/relationship/MusicWidget";
 import { JourneyChapter } from "@/components/relationship/journey-path";
-import { Loader2, Heart, Sparkles, ChevronDown, X, Calendar, MapPin, MessageCircleHeart, Video, Eye } from "lucide-react";
+import { Loader2, Heart, Sparkles, ChevronDown, X, Calendar, MapPin, MessageCircleHeart, Video, Lock, Unlock } from "lucide-react";
 import Link from "next/link";
 
 export default function MePage() {
-  const { data, loading, error, refresh } = useRelationship();
+  const { data, loading, refresh } = useRelationship();
   const [unlocked, setUnlocked] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [selectedChapter, setSelectedChapter] = useState<JourneyChapter | null>(null);
   const [letterOpen, setLetterOpen] = useState(false);
   const [droneMode, setDroneMode] = useState(false);
+
+  // Check saved session unlock state
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = sessionStorage.getItem("universe_unlocked");
+      if (saved === "true") {
+        setUnlocked(true);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -33,14 +43,15 @@ export default function MePage() {
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-7 w-7 animate-spin text-rose-400" />
           <p className="text-[11px] uppercase tracking-[0.3em] text-rose-200/70 font-sans-display">
-            Opening your enchanted garden…
+            Opening your enchanted universe…
           </p>
         </div>
       </div>
     );
   }
 
-  const isLocked = Boolean(error || !data) && !unlocked;
+  // Strictly enforce locked state until passcode is entered
+  const isLocked = !unlocked;
 
   // Love letter data from backend or fallback romantic note
   const latestLetter = data?.letters?.[0] || {
@@ -63,6 +74,26 @@ export default function MePage() {
         </div>
 
         <div className="flex items-center gap-3 pointer-events-auto">
+          {/* Lock / Relock Status Indicator */}
+          {!isLocked ? (
+            <button
+              onClick={() => {
+                sessionStorage.removeItem("universe_unlocked");
+                setUnlocked(false);
+              }}
+              title="Lock Garden Gates"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 hover:bg-rose-950/40 border border-white/10 hover:border-rose-500/40 text-rose-300 text-[11px] font-sans-display tracking-wider transition-all backdrop-blur-md cursor-pointer"
+            >
+              <Unlock className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Unlocked</span>
+            </button>
+          ) : (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-950/60 border border-rose-500/40 text-rose-300 text-[11px] font-sans-display tracking-wider backdrop-blur-md">
+              <Lock className="w-3.5 h-3.5 text-rose-400" />
+              <span>Locked</span>
+            </div>
+          )}
+
           {/* 🚁 3D Drone Mode Toggle Button */}
           {!isLocked && (
             <button
@@ -106,16 +137,16 @@ export default function MePage() {
         </div>
       )}
 
-      {/* 3D Three.js Journey Canvas */}
+      {/* 3D Three.js Journey Canvas with Strictly Enforced Entrance Gate Lock */}
       <Canvas
         camera={{ position: [0, 2, 14], fov: 56 }}
         gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }}
-        dpr={[1, 2]}
+        dpr={[1, 1.5]}
       >
         <color attach="background" args={["#060307"]} />
-        <fog attach="fog" args={["#060307", 12, 65]} />
+        <fog attach="fog" args={["#060307", 14, 75]} />
 
-        <ScrollControls pages={9} damping={0.12}>
+        <ScrollControls pages={isLocked ? 1 : 16} damping={0.14} infinite={!isLocked}>
           <Experience3D
             isLocked={isLocked}
             isDroneMode={droneMode}
@@ -123,17 +154,24 @@ export default function MePage() {
             onOpenLetter={() => setLetterOpen(true)}
             onUnlock={async (token: string) => {
               setUnlocking(true);
-              const res = await fetch("/api/relationship/access", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ token }),
-              });
-              if (res.ok) {
-                await refresh();
-                setUnlocked(true);
+              try {
+                const res = await fetch("/api/relationship/access", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ token }),
+                });
+                if (res.ok) {
+                  sessionStorage.setItem("universe_unlocked", "true");
+                  await refresh();
+                  setUnlocked(true);
+                  setUnlocking(false);
+                  return true;
+                }
+              } catch {
+                // ignore
               }
               setUnlocking(false);
-              return res.ok;
+              return false;
             }}
           />
         </ScrollControls>

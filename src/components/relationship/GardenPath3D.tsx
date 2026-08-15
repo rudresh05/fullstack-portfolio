@@ -1,86 +1,72 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
+import { useScroll } from "@react-three/drei";
 
 interface GardenPath3DProps {
   curve: THREE.CatmullRomCurve3;
   totalLengthZ: number;
 }
 
-// Procedural Cherry Blossom Tree Component
+// Lightweight Procedural Cherry Blossom Tree
 function SakuraTree({ position, scale = 1, rotation = 0 }: { position: [number, number, number]; scale?: number; rotation?: number }) {
   return (
     <group position={position} scale={scale} rotation={[0, rotation, 0]}>
       {/* Trunk */}
-      <mesh position={[0, 2, 0]}>
-        <cylinderGeometry args={[0.2, 0.45, 4, 7]} />
+      <mesh position={[0, 1.8, 0]}>
+        <cylinderGeometry args={[0.18, 0.38, 3.6, 5]} />
         <meshStandardMaterial color="#1a0f18" roughness={0.9} />
       </mesh>
-      {/* Branch Left */}
-      <mesh position={[-0.6, 3.2, 0.2]} rotation={[0.4, 0, 0.6]}>
-        <cylinderGeometry args={[0.12, 0.22, 2.2, 5]} />
-        <meshStandardMaterial color="#1a0f18" roughness={0.9} />
+      {/* Blossom Foliage Clouds */}
+      <mesh position={[0, 4.0, 0]}>
+        <dodecahedronGeometry args={[1.7, 0]} />
+        <meshStandardMaterial color="#fb7185" roughness={0.5} emissive="#f43f5e" emissiveIntensity={0.3} />
       </mesh>
-      {/* Branch Right */}
-      <mesh position={[0.7, 3.4, -0.3]} rotation={[-0.3, 0.5, -0.7]}>
-        <cylinderGeometry args={[0.1, 0.2, 2.4, 5]} />
-        <meshStandardMaterial color="#1a0f18" roughness={0.9} />
+      <mesh position={[-1.0, 3.7, 0.6]}>
+        <dodecahedronGeometry args={[1.2, 0]} />
+        <meshStandardMaterial color="#fda4af" roughness={0.5} emissive="#fb7185" emissiveIntensity={0.25} />
       </mesh>
-
-      {/* Blossom Foliage Clouds (Soft glowing pink/rose clusters) */}
-      <mesh position={[0, 4.4, 0]}>
-        <dodecahedronGeometry args={[1.8, 1]} />
-        <meshStandardMaterial color="#fb7185" roughness={0.4} emissive="#f43f5e" emissiveIntensity={0.35} />
-      </mesh>
-      <mesh position={[-1.2, 4.1, 0.8]}>
-        <dodecahedronGeometry args={[1.3, 1]} />
-        <meshStandardMaterial color="#fda4af" roughness={0.4} emissive="#fb7185" emissiveIntensity={0.3} />
-      </mesh>
-      <mesh position={[1.3, 4.3, -0.7]}>
-        <dodecahedronGeometry args={[1.4, 1]} />
-        <meshStandardMaterial color="#f472b6" roughness={0.4} emissive="#e11d48" emissiveIntensity={0.25} />
-      </mesh>
-      <mesh position={[0.4, 5.2, 0.5]}>
-        <dodecahedronGeometry args={[1.1, 1]} />
-        <meshStandardMaterial color="#fbcfe8" roughness={0.4} emissive="#fda4af" emissiveIntensity={0.4} />
+      <mesh position={[1.1, 3.9, -0.5]}>
+        <dodecahedronGeometry args={[1.2, 0]} />
+        <meshStandardMaterial color="#f472b6" roughness={0.5} emissive="#e11d48" emissiveIntensity={0.2} />
       </mesh>
     </group>
   );
 }
 
-// Romantic Garden Lantern
+// Lightweight Roadside Lantern
 function Lantern({ position }: { position: [number, number, number] }) {
   return (
     <group position={position}>
-      {/* Post */}
       <mesh position={[0, 1.2, 0]}>
-        <cylinderGeometry args={[0.06, 0.09, 2.4, 6]} />
+        <cylinderGeometry args={[0.05, 0.08, 2.4, 4]} />
         <meshStandardMaterial color="#2d1b2a" metalness={0.6} roughness={0.4} />
       </mesh>
-      {/* Lantern Housing */}
       <mesh position={[0, 2.4, 0]}>
-        <octahedronGeometry args={[0.28, 0]} />
-        <meshStandardMaterial color="#2d1b2a" metalness={0.8} roughness={0.2} />
+        <octahedronGeometry args={[0.22, 0]} />
+        <meshStandardMaterial color="#fed7aa" emissive="#fda4af" emissiveIntensity={1.2} />
       </mesh>
-      {/* Glowing Warm Core */}
-      <mesh position={[0, 2.4, 0]}>
-        <sphereGeometry args={[0.16, 8, 8]} />
-        <meshBasicMaterial color="#fed7aa" />
-      </mesh>
-      {/* Soft local point light */}
-      <pointLight position={[0, 2.4, 0]} intensity={0.8} distance={7} color="#fda4af" />
+      <pointLight position={[0, 2.4, 0]} intensity={1.0} color="#fda4af" distance={6} />
     </group>
   );
 }
 
 export function GardenPath3D({ curve }: GardenPath3DProps) {
-  const petalsRef = useRef<THREE.Points>(null);
+  const scroll = useScroll();
+  const petalsRef = useRef<THREE.InstancedMesh>(null);
+  const petalCount = 80; // Optimized petal count
+  const [cameraT, setCameraT] = useState(0.02);
 
-  // 1. Build the curving road ribbon and glowing edge ribbons geometry along the spline
-  const { roadGeometry, leftRailGeometry, rightRailGeometry, treeTransforms, lanternTransforms, flowerTransforms } = useMemo(() => {
-    const segments = 350;
+  useFrame(() => {
+    const normalized = (scroll.offset % 1.0 + 1.0) % 1.0;
+    setCameraT(normalized);
+  });
+
+  // 1. Build road ribbon with optimized segments
+  const { roadGeometry, leftRailGeometry, rightRailGeometry, allTrees, allLanterns, allFlowers } = useMemo(() => {
+    const segments = 220; // Lightweight optimized segment count
     const width = 3.6;
     const railWidth = 0.12;
 
@@ -93,9 +79,9 @@ export function GardenPath3D({ curve }: GardenPath3DProps) {
     const rightRailPos: number[] = [];
     const rightRailIndices: number[] = [];
 
-    const trees: { pos: [number, number, number]; scale: number; rot: number }[] = [];
-    const lanterns: [number, number, number][] = [];
-    const flowers: [number, number, number][] = [];
+    const trees: { t: number; pos: [number, number, number]; scale: number; rot: number }[] = [];
+    const lanterns: { t: number; pos: [number, number, number] }[] = [];
+    const flowers: { t: number; pos: [number, number, number] }[] = [];
 
     const up = new THREE.Vector3(0, 1, 0);
 
@@ -103,7 +89,6 @@ export function GardenPath3D({ curve }: GardenPath3DProps) {
       const t = i / segments;
       const point = curve.getPointAt(t);
       const tangent = curve.getTangentAt(t);
-      
       const normal = new THREE.Vector3().crossVectors(tangent, up).normalize();
 
       const halfW = width / 2;
@@ -117,7 +102,6 @@ export function GardenPath3D({ curve }: GardenPath3DProps) {
       roadUvs.push(0, t * 40);
       roadUvs.push(1, t * 40);
 
-      // Glowing edge strips (ribbons with slight thickness)
       const railY = roadY + 0.04;
       const lInner = leftP.clone().add(normal.clone().multiplyScalar(railWidth));
       leftRailPos.push(leftP.x, railY, leftP.z);
@@ -139,26 +123,33 @@ export function GardenPath3D({ curve }: GardenPath3DProps) {
         rightRailIndices.push(base + 1, base + 3, base + 2);
       }
 
-      // Procedural trees on the outer garden sides (only after passing the gate)
-      if (point.z < -8 && i % 14 === 0) {
-        const side = (i % 28 === 0) ? 1 : -1;
-        const treeOffset = normal.clone().multiplyScalar(side * (5.5 + (i % 5)));
+      // Procedural trees
+      if (point.z < -8 && i % 8 === 0) {
+        const side = (i % 16 === 0) ? 1 : -1;
+        const treeOffset = normal.clone().multiplyScalar(side * (5.5 + (i % 4)));
         const treePos = point.clone().add(treeOffset);
         trees.push({
+          t,
           pos: [treePos.x, point.y, treePos.z],
-          scale: 0.85 + (i % 4) * 0.15,
-          rot: (i * 0.4) % (Math.PI * 2),
+          scale: 0.85 + (i % 3) * 0.15,
+          rot: (i * 0.5) % (Math.PI * 2),
         });
       }
 
+      // Procedural lanterns
+      if (point.z < -4 && i % 12 === 0) {
+        const side = (i % 24 === 0) ? 1 : -1;
+        const lanternOffset = normal.clone().multiplyScalar(side * (halfW + 0.6));
+        const lanternPos = point.clone().add(lanternOffset);
+        lanterns.push({ t, pos: [lanternPos.x, point.y, lanternPos.z] });
+      }
 
-
-      // Procedural glowing rose / flower patches (only after passing the gate)
-      if (point.z < -5 && i % 7 === 0) {
-        const side = (i % 14 === 0) ? 1 : -1;
-        const flowerOffset = normal.clone().multiplyScalar(side * (halfW + 1.2 + (i % 3) * 0.5));
+      // Procedural flowers
+      if (point.z < -5 && i % 6 === 0) {
+        const side = (i % 12 === 0) ? 1 : -1;
+        const flowerOffset = normal.clone().multiplyScalar(side * (halfW + 1.2));
         const flowerPos = point.clone().add(flowerOffset);
-        flowers.push([flowerPos.x, point.y, flowerPos.z]);
+        flowers.push({ t, pos: [flowerPos.x, point.y, flowerPos.z] });
       }
     }
 
@@ -182,135 +173,131 @@ export function GardenPath3D({ curve }: GardenPath3DProps) {
       roadGeometry: geom,
       leftRailGeometry: leftGeom,
       rightRailGeometry: rightGeom,
-      treeTransforms: trees,
-      lanternTransforms: lanterns,
-      flowerTransforms: flowers,
+      allTrees: trees,
+      allLanterns: lanterns,
+      allFlowers: flowers,
     };
   }, [curve]);
 
-  // 2. Floating Rose Petals & Fairy Sparkles
-  const { petalGeometry, initialPositions } = useMemo(() => {
-    const count = 400;
-    const pos = new Float32Array(count * 3);
-    const init = new Float32Array(count * 3);
+  // 🪟 SLIDING WINDOW: Filter trees and scenery near current camera position (dT < 0.15)
+  const visibleTrees = useMemo(() => {
+    return allTrees.filter((item) => {
+      const dt = Math.abs(item.t - cameraT);
+      const wrapDt = Math.min(dt, 1.0 - dt);
+      return wrapDt < 0.15;
+    });
+  }, [allTrees, cameraT]);
 
-    for (let i = 0; i < count; i++) {
-      const t = Math.random();
-      const pt = curve.getPointAt(t);
-      const spreadX = (Math.random() - 0.5) * 26;
-      const spreadY = 0.5 + Math.random() * 8;
-      const spreadZ = (Math.random() - 0.5) * 16;
+  const visibleLanterns = useMemo(() => {
+    return allLanterns.filter((item) => {
+      const dt = Math.abs(item.t - cameraT);
+      const wrapDt = Math.min(dt, 1.0 - dt);
+      return wrapDt < 0.15;
+    });
+  }, [allLanterns, cameraT]);
 
-      const x = pt.x + spreadX;
-      const y = pt.y + spreadY;
-      const z = pt.z + spreadZ;
+  const visibleFlowers = useMemo(() => {
+    return allFlowers.filter((item) => {
+      const dt = Math.abs(item.t - cameraT);
+      const wrapDt = Math.min(dt, 1.0 - dt);
+      return wrapDt < 0.15;
+    });
+  }, [allFlowers, cameraT]);
 
-      pos[i * 3] = x;
-      pos[i * 3 + 1] = y;
-      pos[i * 3 + 2] = z;
+  // 2. Floating Cherry Blossom Petals Particles (Optimized)
+  const initialPetalData = useMemo(() => {
+    return Array.from({ length: petalCount }, () => ({
+      x: (Math.random() - 0.5) * 30,
+      y: Math.random() * 7 + 0.5,
+      z: (Math.random() - 0.5) * 200 - 60,
+      rotX: Math.random() * Math.PI,
+      rotY: Math.random() * Math.PI,
+      rotZ: Math.random() * Math.PI,
+      speedY: 0.015 + Math.random() * 0.02,
+      speedX: (Math.random() - 0.5) * 0.015,
+      rotSpeed: 0.01 + Math.random() * 0.02,
+      scale: 0.08 + Math.random() * 0.1,
+    }));
+  }, [petalCount]);
 
-      init[i * 3] = x;
-      init[i * 3 + 1] = y;
-      init[i * 3 + 2] = z;
-    }
+  const petalState = useRef(initialPetalData);
+  const tempMatrix = useMemo(() => new THREE.Matrix4(), []);
 
-    const geom = new THREE.BufferGeometry();
-    geom.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-    return { petalGeometry: geom, initialPositions: init };
-  }, [curve]);
-
-  // Animate drifting rose petals
-  useFrame(({ clock }) => {
+  useFrame((_, delta) => {
     if (!petalsRef.current) return;
-    const posAttr = petalsRef.current.geometry.attributes.position;
-    if (!posAttr) return;
 
-    const time = clock.getElapsedTime();
-    const array = posAttr.array as Float32Array;
+    petalState.current.forEach((petal, i) => {
+      petal.y -= petal.speedY * (delta * 60);
+      petal.x += Math.sin(petal.y * 2) * petal.speedX * (delta * 60);
+      petal.rotX += petal.rotSpeed;
+      petal.rotY += petal.rotSpeed;
 
-    for (let i = 0; i < array.length / 3; i++) {
-      const idx = i * 3;
-      array[idx] = initialPositions[idx] + Math.sin(time * 0.7 + i) * 1.5;
-      const originalY = initialPositions[idx + 1];
-      const cycleY = (originalY - (time * 0.6 + i * 0.2)) % 8;
-      array[idx + 1] = Math.max(0.2, cycleY >= 0 ? cycleY : cycleY + 8);
-      array[idx + 2] = initialPositions[idx + 2] + Math.cos(time * 0.5 + i * 0.8) * 1.2;
-    }
-    posAttr.needsUpdate = true;
+      if (petal.y < 0.2) {
+        petal.y = 7 + Math.random() * 2;
+        petal.x = (Math.random() - 0.5) * 30;
+      }
+
+      tempMatrix.makeRotationFromEuler(new THREE.Euler(petal.rotX, petal.rotY, petal.rotZ));
+      tempMatrix.setPosition(petal.x, petal.y, petal.z);
+      tempMatrix.scale(new THREE.Vector3(petal.scale, petal.scale, petal.scale * 0.3));
+
+      petalsRef.current!.setMatrixAt(i, tempMatrix);
+    });
+
+    petalsRef.current.instanceMatrix.needsUpdate = true;
   });
 
   return (
     <group>
-      {/* 1. Rolling Enchanted Garden Ground */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.2, -150]} receiveShadow>
-        <planeGeometry args={[180, 450, 40, 40]} />
-        <meshStandardMaterial
-          color="#060308"
-          roughness={0.95}
-          metalness={0.05}
-        />
+      {/* Ground Plane */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.05, -120]} receiveShadow>
+        <planeGeometry args={[160, 420]} />
+        <meshStandardMaterial color="#080309" roughness={0.9} />
       </mesh>
 
-      {/* 2. Curving Cobblestone / Velvet Path */}
-      <mesh geometry={roadGeometry}>
-        <meshStandardMaterial
-          color="#160c18"
-          roughness={0.7}
-          metalness={0.15}
-          emissive="#241028"
-          emissiveIntensity={0.25}
-        />
+      {/* Road Ribbon */}
+      <mesh geometry={roadGeometry} receiveShadow>
+        <meshStandardMaterial color="#16081c" roughness={0.65} metalness={0.25} />
       </mesh>
 
-      {/* 3. Glowing Rose Edge Rails */}
+      {/* Glowing Border Strips */}
       <mesh geometry={leftRailGeometry}>
-        <meshBasicMaterial color="#fda4af" transparent opacity={0.8} />
+        <meshStandardMaterial color="#fb7185" emissive="#f43f5e" emissiveIntensity={1.0} toneMapped={false} />
       </mesh>
       <mesh geometry={rightRailGeometry}>
-        <meshBasicMaterial color="#fda4af" transparent opacity={0.8} />
+        <meshStandardMaterial color="#fb7185" emissive="#f43f5e" emissiveIntensity={1.0} toneMapped={false} />
       </mesh>
 
-      {/* 4. Sakura Blossom Trees along the Bends */}
-      {treeTransforms.map((tree, idx) => (
-        <SakuraTree key={idx} position={tree.pos} scale={tree.scale} rotation={tree.rot} />
+      {/* 🪟 SLIDING WINDOW: Visible Trees */}
+      {visibleTrees.map((t, idx) => (
+        <SakuraTree key={idx} position={t.pos} scale={t.scale} rotation={t.rot} />
       ))}
 
-
-
-      {/* 6. Glowing Crystal Flowers Clusters */}
-      {flowerTransforms.map((fPos, idx) => (
-        <group key={idx} position={fPos}>
-          <mesh position={[0, 0.2, 0]}>
-            <sphereGeometry args={[0.18, 7, 7]} />
-            <meshStandardMaterial
-              color="#fb7185"
-              emissive="#f43f5e"
-              emissiveIntensity={0.6}
-              roughness={0.3}
-            />
-          </mesh>
-          <mesh position={[0.2, 0.15, 0.1]}>
-            <sphereGeometry args={[0.12, 6, 6]} />
-            <meshStandardMaterial
-              color="#fda4af"
-              emissive="#fb7185"
-              emissiveIntensity={0.5}
-            />
-          </mesh>
-        </group>
+      {/* 🪟 SLIDING WINDOW: Visible Lanterns */}
+      {visibleLanterns.map((l, idx) => (
+        <Lantern key={idx} position={l.pos} />
       ))}
 
-      {/* 7. Drifting Rose Petals & Fairy Lights */}
-      <points ref={petalsRef} geometry={petalGeometry}>
-        <pointsMaterial
-          size={0.28}
+      {/* 🪟 SLIDING WINDOW: Visible Flowers */}
+      {visibleFlowers.map((f, idx) => (
+        <mesh key={idx} position={f.pos}>
+          <sphereGeometry args={[0.18, 4, 4]} />
+          <meshStandardMaterial color="#fb7185" emissive="#f43f5e" emissiveIntensity={0.8} />
+        </mesh>
+      ))}
+
+      {/* Floating Petals */}
+      <instancedMesh ref={petalsRef} args={[undefined, undefined, petalCount]} frustumCulled={false}>
+        <planeGeometry args={[1, 1]} />
+        <meshStandardMaterial
           color="#fda4af"
+          emissive="#fb7185"
+          emissiveIntensity={0.5}
+          side={THREE.DoubleSide}
           transparent
           opacity={0.85}
-          sizeAttenuation
-          blending={THREE.AdditiveBlending}
         />
-      </points>
+      </instancedMesh>
     </group>
   );
 }

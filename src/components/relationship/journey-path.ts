@@ -86,39 +86,40 @@ export const DEFAULT_ROMANTIC_CHAPTERS: JourneyChapter[] = [
 
 export const GATE_POSITION = new THREE.Vector3(0, 0, 0);
 
+// Looped Infinite Spline supporting continuous scrolling and recurring drone pavilions
 export function buildJourneySpline(chapterCount: number = 6): {
   curve: THREE.CatmullRomCurve3;
   controlPoints: THREE.Vector3[];
   totalLengthZ: number;
 } {
   const points: THREE.Vector3[] = [];
-  const count = Math.max(4, chapterCount);
+  const count = Math.max(6, chapterCount);
 
   // 1. Entrance Avenue before Gate
   points.push(new THREE.Vector3(0, 0.2, 16));
   points.push(new THREE.Vector3(0, 0.2, 8));
-  points.push(new THREE.Vector3(0, 0.2, 0)); // Grand Gate
+  points.push(new THREE.Vector3(0, 0.2, 0)); // Gate
 
-  // 2. Beyond Gate: Serpentine Winding S-Curves
-  const startZ = -12;
-  const segmentSpacing = 36;
+  // 2. Serpentine Winding Road with 2 Major Loops and Checkpoint Plazas
+  const startZ = -14;
+  const segmentSpacing = 28;
 
-  for (let i = 0; i < count; i++) {
-    const progress = i / (count - 1);
+  for (let i = 0; i <= count * 2; i++) {
+    const progress = i / (count * 2);
     const z = startZ - (i * segmentSpacing);
-    const lateralCurve = Math.sin(progress * Math.PI * 3.2) * 11.5;
-    const gentleElevation = Math.sin(progress * Math.PI * 2) * 0.45;
+    const lateralCurve = Math.sin(progress * Math.PI * 5.5) * 13.5;
+    const elevation = Math.sin(progress * Math.PI * 4) * 0.4;
 
-    points.push(new THREE.Vector3(lateralCurve, 0.2 + gentleElevation, z));
+    points.push(new THREE.Vector3(lateralCurve, 0.2 + elevation, z));
   }
 
   // 3. Grand Finale stretch at the end
-  const finaleZ = -12 - ((count + 1) * segmentSpacing);
-  points.push(new THREE.Vector3(0, 0.2, finaleZ));
-  points.push(new THREE.Vector3(0, 0.2, finaleZ - 25));
+  const lastZ = startZ - ((count * 2 + 1) * segmentSpacing);
+  points.push(new THREE.Vector3(0, 0.2, lastZ));
+  points.push(new THREE.Vector3(0, 0.2, lastZ - 20));
 
   const curve = new THREE.CatmullRomCurve3(points, false, "catmullrom", 0.5);
-  const totalLengthZ = Math.abs(finaleZ) + 40;
+  const totalLengthZ = Math.abs(lastZ) + 40;
 
   return { curve, controlPoints: points, totalLengthZ };
 }
