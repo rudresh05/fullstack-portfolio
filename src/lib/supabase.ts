@@ -12,11 +12,13 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
 });
 
 // Server-side supabase (bypasses RLS)
-export const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY || SUPABASE_KEY, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false
-  }
-});
+export const supabaseAdmin = typeof window === "undefined"
+  ? createClient(SUPABASE_URL, SERVICE_ROLE_KEY || SUPABASE_KEY, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    })
+  : (null as any);
 
 export const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL ?? "";

@@ -1,5 +1,16 @@
+@import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Montserrat:wght@300;400;600&display=swap');
 @import "tailwindcss";
 @config "../../tailwind.config.ts";
+
+.font-cursive {
+  font-family: 'Dancing Script', cursive !important;
+}
+.font-serif-display {
+  font-family: 'Playfair Display', serif !important;
+}
+.font-sans-display {
+  font-family: 'Montserrat', sans-serif !important;
+}
 
 :root {
   color-scheme: light;
@@ -158,3 +169,125 @@ a {
   opacity: 0.045;
   background-image: url("https://grainy-gradients.vercel.app/noise.svg");
 }
+
+/* Scoped Romance Theme (ONLY active under /me route wrappers) */
+@keyframes romance-gradient {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+body:has(.romance-theme) {
+  background: #f7f0e6 !important;
+  animation: none !important;
+}
+
+.romance-theme {
+  --me-bg: #f7f0e6;
+  --me-bg-soft: #efe8dc;
+  --me-text: #2c1a10;
+  --me-muted: #8a6a5a;
+  --me-rose: #c4687a;
+  --me-blush: #e8a4b0;
+  --me-gold: #a07830;
+  --me-line: rgba(180, 120, 90, 0.18);
+  --me-panel: rgba(255, 249, 242, 0.85);
+  
+  --bg: var(--me-bg);
+  --bg-soft: var(--me-bg-soft);
+  --text: var(--me-text);
+  --muted: var(--me-muted);
+  --line: var(--me-line);
+  --panel: var(--me-panel);
+  --panel-strong: rgba(255, 249, 242, 0.95);
+  --accent: var(--me-rose);
+  --accent-strong: var(--me-blush);
+  --gold: var(--me-gold);
+  --rose: var(--me-rose);
+  --shadow: 0 12px 40px rgba(44, 26, 16, 0.08);
+}
+
+/* Background overrides to ensure full blending */
+.romance-theme main,
+.romance-theme section {
+  background-color: transparent !important;
+}
+
+/* Scoped panel overrides */
+.romance-theme .panel,
+.romance-theme .panel-strong,
+.romance-theme .bg-\[linear-gradient\(135deg\,rgba\(41\,19\,52\,\.88\)\,rgba\(17\,10\,25\,\.94\)\)\] {
+  background: var(--panel-strong) !important;
+  border: 1px solid var(--line) !important;
+  backdrop-filter: blur(20px) saturate(140%) !important;
+  box-shadow: 0 20px 50px rgba(244, 63, 94, 0.08), var(--shadow) !important;
+  color: var(--text) !important;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.4s ease, box-shadow 0.4s ease;
+}
+
+.romance-theme .panel:hover,
+.romance-theme .panel-strong:hover {
+  transform: translateY(-4px) !important;
+  border-color: rgba(244, 63, 94, 0.35) !important;
+  box-shadow: 0 25px 60px rgba(244, 63, 94, 0.16), var(--shadow) !important;
+}
+
+.romance-theme .bg-white\/\[0\.01\],
+.romance-theme .bg-white\/\[0\.025\],
+.romance-theme .bg-rose-300\/10,
+.romance-theme .bg-\[\#e8c47b\]\/10,
+.romance-theme .bg-\[\#100915\]\/65 {
+  background-color: var(--panel) !important;
+  border-color: var(--line) !important;
+  backdrop-filter: blur(12px) !important;
+  color: var(--text) !important;
+}
+
+.romance-theme .border-rose-100\/10,
+.romance-theme .border-rose-100\/20,
+.romance-theme .border-rose-200\/15,
+.romance-theme .border-rose-200\/20,
+.romance-theme .border-\[\#e8c47b\]\/10,
+.romance-theme .border-\[\#e8c47b\]\/20 {
+  border-color: var(--line) !important;
+}
+
+/* Navigation Header styling in romance-theme */
+.romance-theme .bg-\[\#0b0710\],
+.romance-theme .bg-\[\#0b0710\]\/98,
+.romance-theme .bg-\[\#0b0710\]\/80 {
+  background-color: rgba(14, 6, 15, 0.85) !important;
+  backdrop-filter: blur(16px) !important;
+  color: var(--text) !important;
+}
+
+/* Scoped Animations for Romantic Date mode */
+@keyframes candle-flicker {
+  0%, 100% { opacity: 0.85; filter: brightness(1) saturate(100%); }
+  33% { opacity: 0.95; filter: brightness(1.03) saturate(105%); }
+  66% { opacity: 0.90; filter: brightness(0.98) saturate(98%); }
+}
+
+@keyframes eq-bar-1 { 0%, 100% { height: 4px; } 50% { height: 12px; } }
+@keyframes eq-bar-2 { 0%, 100% { height: 16px; } 50% { height: 6px; } }
+@keyframes eq-bar-3 { 0%, 100% { height: 6px; } 50% { height: 14px; } }
+@keyframes eq-bar-4 { 0%, 100% { height: 10px; } 50% { height: 4px; } }
+
+.animate-eq-bar-1 { animation: eq-bar-1 1s ease infinite alternate; }
+.animate-eq-bar-2 { animation: eq-bar-2 1.2s ease infinite alternate; }
+.animate-eq-bar-3 { animation: eq-bar-3 0.8s ease infinite alternate; }
+.animate-eq-bar-4 { animation: eq-bar-4 1.1s ease infinite alternate; }
+
+@keyframes float-up-down {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+
+.animate-float {
+  animation: float-up-down 3.5s ease-in-out infinite;
+}
+
+
+
+
+
