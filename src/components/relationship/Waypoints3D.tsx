@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useMemo, useState, useEffect } from "react";
+import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { JourneyChapter } from "./journey-path";
 import { useRelationship } from "./relationship-provider";
@@ -296,67 +297,86 @@ function PhysicalStorySignpost({
   );
 }
 
-// Circular 3D Portrait Mesh inside Gazebo Ring
-function CircularPortraitMesh({ imageUrl }: { imageUrl: string }) {
-  const [portraitTexture, setPortraitTexture] = useState<THREE.CanvasTexture | null>(null);
+// Single Clean Photo Panel for the Hexagonal Carousel (Centered Cover, No Wireframes)
+function HexagonalPanel({
+  imageUrl,
+  position,
+  rotationY,
+}: {
+  imageUrl: string;
+  position: [number, number, number];
+  rotationY: number;
+}) {
+  const [texture, setTexture] = useState<THREE.CanvasTexture | null>(null);
 
   useEffect(() => {
     if (!imageUrl) return;
 
     const canvas = document.createElement("canvas");
-    canvas.width = 1024;
-    canvas.height = 1024;
+    canvas.width = 800;
+    canvas.height = 1000;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => {
-      ctx.clearRect(0, 0, 1024, 1024);
-      ctx.save();
+      ctx.clearRect(0, 0, 800, 1000);
 
-      // Circular clip mask
+      const pad = 12;
+      const w = 800 - pad * 2;
+      const h = 1000 - pad * 2;
+
+      ctx.save();
       ctx.beginPath();
-      ctx.arc(512, 512, 500, 0, Math.PI * 2);
+      ctx.roundRect(pad, pad, w, h, 28);
       ctx.clip();
 
-      // Cover aspect fill
-      const aspect = img.width / img.height;
-      let drawW = 1024;
-      let drawH = 1024;
-      let offsetX = 0;
-      let offsetY = 0;
+      // Exact Centered Cover Algorithm
+      const imgAspect = img.width / img.height;
+      const canvasAspect = w / h;
+      let drawW: number;
+      let drawH: number;
+      let drawX: number;
+      let drawY: number;
 
-      if (aspect > 1) {
-        drawW = 1024 * aspect;
-        offsetX = (1024 - drawW) / 2;
+      if (imgAspect > canvasAspect) {
+        // Image is wider than canvas: fit height, crop width equally from center
+        drawH = h;
+        drawW = h * imgAspect;
+        drawX = pad + (w - drawW) / 2;
+        drawY = pad;
       } else {
-        drawH = 1024 / aspect;
-        offsetY = (1024 - drawH) / 2;
+        // Image is taller than canvas: fit width, crop height equally from center
+        drawW = w;
+        drawH = w / imgAspect;
+        drawX = pad;
+        drawY = pad + (h - drawH) / 2;
       }
 
-      ctx.drawImage(img, offsetX, offsetY, drawW, drawH);
+      ctx.drawImage(img, drawX, drawY, drawW, drawH);
 
-      // Vignette effect
-      const vignette = ctx.createRadialGradient(512, 512, 360, 512, 512, 510);
-      vignette.addColorStop(0, "rgba(0, 0, 0, 0)");
-      vignette.addColorStop(1, "rgba(10, 4, 16, 0.5)");
-      ctx.fillStyle = vignette;
-      ctx.fillRect(0, 0, 1024, 1024);
+      // Subtle bottom shadow vignette
+      const grad = ctx.createLinearGradient(0, 720, 0, 1000);
+      grad.addColorStop(0, "rgba(10, 4, 16, 0.0)");
+      grad.addColorStop(1, "rgba(10, 4, 16, 0.7)");
+      ctx.fillStyle = grad;
+      ctx.fillRect(pad, 720, w, 280);
+
       ctx.restore();
 
-      // Rose Gold Border Ring
+      // Radiant Rose-Gold Frame Border
       ctx.beginPath();
-      ctx.arc(512, 512, 496, 0, Math.PI * 2);
+      ctx.roundRect(pad, pad, w, h, 28);
       ctx.strokeStyle = "rgba(251, 113, 133, 0.95)";
-      ctx.lineWidth = 16;
+      ctx.lineWidth = 10;
       ctx.stroke();
 
       const tex = new THREE.CanvasTexture(canvas);
       tex.minFilter = THREE.LinearFilter;
       tex.magFilter = THREE.LinearFilter;
       tex.needsUpdate = true;
-      setPortraitTexture(tex);
+      setTexture(tex);
     };
     img.src = imageUrl;
 
@@ -366,29 +386,170 @@ function CircularPortraitMesh({ imageUrl }: { imageUrl: string }) {
   }, [imageUrl]);
 
   return (
-    <group position={[0, 4.4, 0]}>
-      {/* Dark Backing Circle */}
-      <mesh position={[0, 0, -0.04]}>
-        <circleGeometry args={[2.3, 64]} />
-        <meshStandardMaterial color="#0c0413" roughness={0.6} />
+    <group position={position} rotation={[0, rotationY, 0]}>
+      {/* Dark Backing Board */}
+      <mesh position={[0, 0, -0.02]}>
+        <boxGeometry args={[2.0, 2.52, 0.04]} />
+        <meshStandardMaterial color="#0e0414" roughness={0.7} metalness={0.3} />
       </mesh>
 
-      {/* Main Circular Portrait Image */}
-      {portraitTexture && (
-        <mesh position={[0, 0, 0.02]}>
-          <circleGeometry args={[2.26, 64]} />
-          <meshBasicMaterial map={portraitTexture} side={THREE.DoubleSide} toneMapped={false} />
+      {/* Main High-DPI Photo Plane (Centered Cover) */}
+      {texture && (
+        <mesh position={[0, 0, 0.015]}>
+          <planeGeometry args={[1.98, 2.5]} />
+          <meshBasicMaterial map={texture} toneMapped={false} side={THREE.FrontSide} />
         </mesh>
       )}
+    </group>
+  );
+}
 
-      {/* Glowing Outer Neon Ring */}
-      <mesh position={[0, 0, 0.04]}>
-        <ringGeometry args={[2.24, 2.38, 64]} />
-        <meshStandardMaterial color="#fb7185" emissive="#f43f5e" emissiveIntensity={1.4} />
+// 🌸 3D REVOLVING HEXAGONAL PHOTO PRISM CAROUSEL
+function HexagonalPhotoPrism({ photos }: { photos: Array<{ url: string }> }) {
+  const groupRef = useRef<THREE.Group>(null);
+
+  // Smooth romantic rotation
+  useFrame((_, delta) => {
+    if (groupRef.current) {
+      groupRef.current.rotation.y += delta * 0.12;
+    }
+  });
+
+  const count = 6;
+  const radius = 1.95;
+
+  const panels = useMemo(() => {
+    return Array.from({ length: count }).map((_, idx) => {
+      const angle = (idx / count) * Math.PI * 2;
+      const x = Math.sin(angle) * radius;
+      const z = Math.cos(angle) * radius;
+      const photoItem = photos[idx % photos.length] || {
+        url: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=1288&auto=format&fit=crop",
+      };
+
+      return {
+        id: idx,
+        url: photoItem.url,
+        position: [x, 0, z] as [number, number, number],
+        rotationY: angle,
+      };
+    });
+  }, [photos, radius, count]);
+
+  return (
+    <group position={[0, 3.6, 0]}>
+      {/* Revolving Hexagonal Core */}
+      <group ref={groupRef}>
+        {/* Top & Bottom Glowing Hexagonal Plates */}
+        <mesh position={[0, 1.3, 0]}>
+          <cylinderGeometry args={[2.1, 2.1, 0.05, 6]} />
+          <meshStandardMaterial color="#1a0a22" emissive="#f43f5e" emissiveIntensity={0.6} metalness={0.8} />
+        </mesh>
+        <mesh position={[0, -1.3, 0]}>
+          <cylinderGeometry args={[2.1, 2.1, 0.05, 6]} />
+          <meshStandardMaterial color="#1a0a22" emissive="#f43f5e" emissiveIntensity={0.6} metalness={0.8} />
+        </mesh>
+
+        {/* 6 Clean High-DPI Hexagonal Photo Faces */}
+        {panels.map((p) => (
+          <HexagonalPanel
+            key={p.id}
+            imageUrl={p.url}
+            position={p.position}
+            rotationY={p.rotationY}
+          />
+        ))}
+
+        {/* Glowing Central Fairy Core */}
+        <mesh position={[0, 0, 0]}>
+          <octahedronGeometry args={[0.26, 0]} />
+          <meshStandardMaterial color="#fda4af" emissive="#f43f5e" emissiveIntensity={1.8} />
+        </mesh>
+        <pointLight position={[0, 0, 0]} intensity={3.5} color="#fda4af" distance={10} />
+      </group>
+
+      {/* Exterior Warm Illuminators */}
+      <pointLight position={[0, 0, 3.2]} intensity={2.2} color="#fed7aa" distance={10} />
+      <pointLight position={[0, 0, -3.2]} intensity={2.2} color="#fed7aa" distance={10} />
+    </group>
+  );
+}
+
+// 🏛️ HEXAGONAL HOME WITH ROUND ("GOL") DOME ROOF
+function HexagonalGazeboHouse() {
+  const pillarRadius = 3.6;
+  const pillarCount = 6;
+
+  // 6 Pillars placed in a regular hexagon
+  const pillars = useMemo(() => {
+    return Array.from({ length: pillarCount }).map((_, idx) => {
+      const angle = (idx / pillarCount) * Math.PI * 2;
+      const x = Math.sin(angle) * pillarRadius;
+      const z = Math.cos(angle) * pillarRadius;
+      return { id: idx, pos: [x, 2.6, z] as [number, number, number] };
+    });
+  }, [pillarRadius, pillarCount]);
+
+  return (
+    <group>
+      {/* 1. Grand Hexagonal Stepped Terrace Base */}
+      <mesh position={[0, -0.1, 0]} receiveShadow>
+        <cylinderGeometry args={[6.4, 7.0, 0.4, 6]} />
+        <meshStandardMaterial color="#1a0c1e" roughness={0.6} metalness={0.2} />
+      </mesh>
+      <mesh position={[0, 0.12, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[6.1, 6.35, 6]} />
+        <meshStandardMaterial color="#fb7185" emissive="#f43f5e" emissiveIntensity={0.8} />
       </mesh>
 
-      {/* Dedicated Soft Spotlight on Portrait */}
-      <pointLight position={[0, 0, 1.6]} intensity={3.0} color="#fda4af" distance={12} />
+      {/* 2. 6 Elegant Gazebo House Pillars arranged in a Hexagon */}
+      {pillars.map((p) => (
+        <group key={p.id} position={p.pos}>
+          {/* Main Pillar Column */}
+          <mesh position={[0, 0, 0]}>
+            <cylinderGeometry args={[0.14, 0.18, 5.2, 12]} />
+            <meshStandardMaterial color="#25102b" metalness={0.6} roughness={0.3} />
+          </mesh>
+          {/* Glowing Rose Collar on base & top */}
+          <mesh position={[0, -2.4, 0]}>
+            <torusGeometry args={[0.22, 0.04, 8, 16]} />
+            <meshStandardMaterial color="#fb7185" emissive="#f43f5e" emissiveIntensity={0.8} />
+          </mesh>
+          <mesh position={[0, 2.6, 0]}>
+            <octahedronGeometry args={[0.24, 0]} />
+            <meshStandardMaterial color="#fb7185" emissive="#f43f5e" emissiveIntensity={0.8} />
+          </mesh>
+          <pointLight position={[0, 2.4, 0]} intensity={1.4} color="#fda4af" distance={8} />
+        </group>
+      ))}
+
+      {/* 3. 🌐 ROUND ("GOL") DOME ROOF ON TOP OF THE HEXAGONAL HOUSE */}
+      <group position={[0, 5.2, 0]}>
+        {/* Glowing Rose-Gold Circular Arch Ring Supporting the Dome */}
+        <mesh position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[3.62, 0.08, 12, 48]} />
+          <meshStandardMaterial color="#fb7185" emissive="#f43f5e" emissiveIntensity={0.9} metalness={0.8} />
+        </mesh>
+
+        {/* Outer Round Domed Shell ("Gol Roof") */}
+        <mesh position={[0, 0, 0]}>
+          <sphereGeometry args={[3.65, 36, 18, 0, Math.PI * 2, 0, Math.PI * 0.42]} />
+          <meshStandardMaterial color="#190820" metalness={0.7} roughness={0.3} side={THREE.DoubleSide} />
+        </mesh>
+
+        {/* Inner Warm Canopy Glow Under the Dome */}
+        <pointLight position={[0, 0.5, 0]} intensity={2.8} color="#fda4af" distance={10} />
+
+        {/* Tiered Crown Spire atop the Round Roof */}
+        <mesh position={[0, 1.85, 0]}>
+          <cylinderGeometry args={[0.06, 0.28, 0.8, 8]} />
+          <meshStandardMaterial color="#25102b" metalness={0.8} />
+        </mesh>
+        <mesh position={[0, 2.4, 0]}>
+          <octahedronGeometry args={[0.35, 0]} />
+          <meshStandardMaterial color="#fda4af" emissive="#f43f5e" emissiveIntensity={2.0} />
+        </mesh>
+      </group>
     </group>
   );
 }
@@ -404,7 +565,7 @@ function FinalePavilion({
   const { data } = useRelationship();
   const [forHer, setForHer] = useState<ForHerContent | null>(null);
 
-  // 1. Fetch & Subscribe to Ghost Background Portrait and Atmosphere settings from Studio
+  // 1. Fetch & Subscribe to Ghost Background Portrait and Visual Gallery from Studio
   useEffect(() => {
     fetchSetting<ForHerContent>("for_her_content", undefined as any).then((val) => {
       if (val) setForHer(val);
@@ -416,12 +577,45 @@ function FinalePavilion({
 
   const recipientName = forHer?.herName || data?.relationship?.recipientName || "My Forever Love";
   const heroSubtitle = forHer?.tagline || data?.settings?.heroSubtitle || "Every second with you is a blessing I cherish forever.";
-  const portraitUrl =
-    forHer?.portraitUrl ||
-    data?.settings?.portraitUrl ||
-    data?.memories?.find((m) => m.media && m.media.length > 0)?.media?.[0]?.url ||
-    data?.timeline?.find((t) => Boolean(t.coverUrl))?.coverUrl ||
-    "https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=1288&auto=format&fit=crop";
+
+  // Build the 6 Photos for the Hexagonal Carousel:
+  // Face 1: Ghost Background Portrait (Atmosphere)
+  // Faces 2-6: Moments from Visual Gallery
+  const carouselPhotos = useMemo(() => {
+    const list: Array<{ url: string }> = [];
+
+    // 1. Primary Ghost Background Portrait
+    const mainPortrait = forHer?.portraitUrl || data?.settings?.portraitUrl;
+    if (mainPortrait) {
+      list.push({ url: mainPortrait });
+    }
+
+    // 2. Moments from Visual Gallery
+    if (forHer?.moments && forHer.moments.length > 0) {
+      forHer.moments.forEach((m) => {
+        if (m.img) {
+          list.push({ url: m.img });
+        }
+      });
+    }
+
+    // Fallbacks if fewer than 6 photos
+    const fallbackUrls = [
+      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=1288&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=800&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1517841905240-472988babdf9?q=80&w=800&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?q=80&w=800&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=800&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=800&auto=format&fit=crop",
+    ];
+
+    while (list.length < 6) {
+      const idx = list.length;
+      list.push({ url: fallbackUrls[idx % fallbackUrls.length] });
+    }
+
+    return list.slice(0, 6);
+  }, [forHer, data]);
 
   // Generate 3D Dedicated Podium Plaque Texture
   const finaleTexture = useMemo(() => {
@@ -493,45 +687,15 @@ function FinalePavilion({
 
   return (
     <group position={position}>
-      {/* 1. Grand Circular Gazebo Terrace Base */}
-      <mesh position={[0, -0.1, 0]} receiveShadow>
-        <cylinderGeometry args={[6.5, 7.2, 0.4, 32]} />
-        <meshStandardMaterial color="#1a0c1e" roughness={0.6} metalness={0.2} />
-      </mesh>
-      <mesh position={[0, 0.12, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[6.2, 6.45, 32]} />
-        <meshStandardMaterial color="#fb7185" emissive="#f43f5e" emissiveIntensity={0.8} />
-      </mesh>
+      {/* 1. Hexagonal Gazebo House with Round ("Gol") Dome Roof */}
+      <HexagonalGazeboHouse />
 
-      {/* 2. 4 Elegant Pillars Supporting the Archway */}
-      {[-3.2, 3.2].map((x, i) =>
-        [-2.5, 2.5].map((z, j) => (
-          <group key={`${i}-${j}`} position={[x, 0, z]}>
-            <mesh position={[0, 2.5, 0]}>
-              <cylinderGeometry args={[0.18, 0.24, 5.0, 12]} />
-              <meshStandardMaterial color="#25102b" metalness={0.5} roughness={0.4} />
-            </mesh>
-            <mesh position={[0, 5.1, 0]}>
-              <octahedronGeometry args={[0.25, 0]} />
-              <meshStandardMaterial color="#fb7185" emissive="#f43f5e" emissiveIntensity={0.7} />
-            </mesh>
-            <pointLight position={[0, 4.8, 0]} intensity={1.2} color="#fda4af" distance={8} />
-          </group>
-        ))
-      )}
+      {/* 2. 🌸 3D Revolving Hexagonal Photo Prism (Centered Cover, 6 Photos) */}
+      <HexagonalPhotoPrism photos={carouselPhotos} />
 
-      {/* 3. Domed Arch Ring on top enclosing the circular frame */}
-      <mesh position={[0, 4.4, 0]}>
-        <torusGeometry args={[2.42, 0.14, 12, 36]} />
-        <meshStandardMaterial color="#25102b" metalness={0.8} roughness={0.2} />
-      </mesh>
-
-      {/* 4. HER UPLOADED GHOST BACKGROUND PORTRAIT MOUNTED IN THE ELEVATED CIRCULAR FRAME */}
-      <CircularPortraitMesh imageUrl={portraitUrl} />
-
-      {/* 5. Left & Right Flanking Lantern Pillars on the Stage */}
-      {[-2.5, 2.5].map((x, idx) => (
-        <group key={idx} position={[x, 0, 1.2]}>
+      {/* 3. Left & Right Flanking Lantern Pillars on the Stage */}
+      {[-2.7, 2.7].map((x, idx) => (
+        <group key={idx} position={[x, 0, 1.4]}>
           <mesh position={[0, 0.6, 0]}>
             <cylinderGeometry args={[0.06, 0.09, 1.2, 8]} />
             <meshStandardMaterial color="#1a0e1c" metalness={0.7} roughness={0.3} />
@@ -544,8 +708,8 @@ function FinalePavilion({
         </group>
       ))}
 
-      {/* 6. Dedicated Foreground Guestbook Podium in Front of the Gazebo */}
-      <group position={[0, 1.15, 1.8]} rotation={[-0.12, 0, 0]}>
+      {/* 4. Dedicated Foreground Guestbook Podium in Front of the Gazebo */}
+      <group position={[0, 1.15, 2.0]} rotation={[-0.12, 0, 0]}>
         {/* Ornate Pedestal Pillar */}
         <mesh position={[0, -0.65, 0]}>
           <cylinderGeometry args={[0.12, 0.18, 1.1, 8]} />
@@ -646,7 +810,7 @@ export function Waypoints3D({ curve, chapters, onOpenChapter, onOpenLetter }: Wa
         />
       ))}
 
-      {/* 2. Grand Finale Romantic Portrait Pavilion with Ghost Background Portrait in the Circle */}
+      {/* 2. Grand Finale Romantic Pavilion with Hexagonal House and Round Dome Roof */}
       <FinalePavilion position={finalePoint} onOpenLetter={onOpenLetter} />
     </group>
   );

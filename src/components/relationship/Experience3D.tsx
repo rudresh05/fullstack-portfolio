@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useMemo } from "react";
+import { useRef, useMemo, useState, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import { useScroll } from "@react-three/drei";
 import * as THREE from "three";
@@ -10,6 +10,7 @@ import { GardenPath3D } from "./GardenPath3D";
 import { Waypoints3D } from "./Waypoints3D";
 import { useRelationship } from "./relationship-provider";
 import { buildJourneySpline, getEnrichedChapters, GATE_POSITION, JourneyChapter } from "./journey-path";
+import { fetchSetting, subscribeSetting, type ForHerContent } from "@/lib/content-store";
 
 interface Experience3DProps {
   isLocked: boolean;
@@ -28,9 +29,20 @@ export function Experience3D({
 }: Experience3DProps) {
   const scroll = useScroll();
   const { data } = useRelationship();
+  const [forHer, setForHer] = useState<ForHerContent | null>(null);
 
-  // 1. Enriched chapters
-  const chapters = useMemo(() => getEnrichedChapters(data), [data]);
+  // Subscribe to studio settings (for_her_content)
+  useEffect(() => {
+    fetchSetting<ForHerContent>("for_her_content", undefined as any).then((val) => {
+      if (val) setForHer(val);
+    });
+    return subscribeSetting<ForHerContent>("for_her_content", (val) => {
+      if (val) setForHer(val);
+    });
+  }, []);
+
+  // 1. Enriched chapters using both Supabase data and Studio visual gallery
+  const chapters = useMemo(() => getEnrichedChapters(data, forHer), [data, forHer]);
 
   // 2. Build the smooth 3D CatmullRom spline curve
   const { curve, totalLengthZ } = useMemo(() => {
@@ -65,17 +77,16 @@ export function Experience3D({
     const activeDrone = isDroneMode || isAtFinale;
 
     if (activeDrone) {
-      // 🚁 CINEMATIC 3D ORBITAL DRONE CAMERA SHOT
-      droneAngle.current += delta * 0.28; // Smooth orbit speed
+      // 🚁 CINEMATIC 3D ORBITAL DRONE CAMERA SHOT (360° View showing both front and back photos)
+      droneAngle.current += delta * 0.28;
       const radius = 11.2;
       const angle = droneAngle.current;
 
       const droneX = finalePoint.x + Math.sin(angle) * radius;
       const droneZ = finalePoint.z + Math.cos(angle) * radius;
-      const droneY = 4.4 + Math.sin(elapsed * 0.4) * 1.3; // Gentle altitude wave
+      const droneY = 4.4 + Math.sin(elapsed * 0.4) * 1.3;
 
       const targetCameraPos = new THREE.Vector3(droneX, droneY, droneZ);
-      // Focus directly on the center of her illuminated portrait in the gazebo
       const targetCameraLook = new THREE.Vector3(finalePoint.x, 3.8, finalePoint.z);
 
       currentPos.current.lerp(targetCameraPos, Math.min(1, delta * 3.0));
