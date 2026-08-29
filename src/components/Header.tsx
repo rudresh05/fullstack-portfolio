@@ -38,7 +38,7 @@ export default function Header() {
     setIsOpen(false);
   }, [pathname]);
 
-  if (pathname === "/me" || pathname.startsWith("/me/")) return null;
+  if (pathname === "/me" || pathname.startsWith("/me/") || pathname === "/sorry-bubu" || pathname.startsWith("/sorry-bubu")) return null;
 
   const getHref = (href: string) => {
     if (!href.startsWith("#")) return href;
