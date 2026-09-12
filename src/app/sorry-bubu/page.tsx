@@ -1,548 +1,970 @@
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import {
-  Sparkles,
-  Volume2,
-  VolumeX,
-  Sun,
-  Moon,
-  Coffee,
-} from "lucide-react";
 
-// Web Audio Synthesizer
-class SoundEffects {
-  ctx: AudioContext | null = null;
-
-  init() {
-    if (!this.ctx && typeof window !== "undefined") {
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      this.ctx = new AudioCtx();
-    }
-  }
-
-  playTone(freq: number, type: OscillatorType = "sine", duration = 0.3, gainVal = 0.12) {
-    try {
-      this.init();
-      if (!this.ctx) return;
-      if (this.ctx.state === "suspended") this.ctx.resume();
-
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
-      osc.type = type;
-      osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
-      gain.gain.setValueAtTime(gainVal, this.ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
-
-      osc.connect(gain);
-      gain.connect(this.ctx.destination);
-      osc.start();
-      osc.stop(this.ctx.currentTime + duration);
-    } catch {
-      // Ignore audio errors if blocked
-    }
-  }
-
-  playPop() {
-    this.playTone(523.25, "sine", 0.15, 0.15);
-    setTimeout(() => this.playTone(659.25, "sine", 0.2, 0.12), 60);
-  }
-
-  playChime() {
-    const notes = [523.25, 659.25, 783.99, 1046.5];
-    notes.forEach((freq, idx) => {
-      setTimeout(() => this.playTone(freq, "triangle", 0.4, 0.1), idx * 80);
-    });
-  }
-
-  playHarp() {
-    const notes = [440, 554.37, 659.25, 830.61, 880, 1108.73];
-    notes.forEach((freq, idx) => {
-      setTimeout(() => this.playTone(freq, "sine", 0.5, 0.08), idx * 70);
-    });
-  }
-}
-
-const sounds = new SoundEffects();
-
-type ThemeMode = "blossom" | "cozy" | "night";
-
-interface GiftItem {
-  id: number;
-  emoji: string;
+interface ModalState {
+  open: boolean;
   title: string;
-  subtitle: string;
-  content: string;
-  detail: string;
+  param: string;
+  icon: string;
 }
 
-const giftsData: GiftItem[] = [
-  {
-    id: 0,
-    emoji: "🌷",
-    title: "100 Virtual Roses for Bubu",
-    subtitle: "Tap to bloom flowers across the screen",
-    content: "Ek ek phool un saare moments ke liye jab tumne mera din special banaya hai.",
-    detail: "Tum muskuraati ho na, toh sach me mera pura world bright ho jaata hai. 🌸",
-  },
-  {
-    id: 1,
-    emoji: "🧸",
-    title: "Emergency Hug Counter",
-    subtitle: "Tap to give Betu a tight hug",
-    content: "Bas ab chup chap paas aao aur bohot tight wali hug lo. Aur jab tak tumhara gussa thanda na ho, chhodna mat.",
-    detail: "Saari tension bhool jao, tumhara Betu hamesha tumhare saath hai. 🫂",
-  },
-  {
-    id: 2,
-    emoji: "💌",
-    title: "Betu's Handwritten Note",
-    subtitle: "Tap to open letter",
-    content: "Suno Bubu... tum jitna chahe gussa kar lo. Main baar baar manata rahunga. Nakhre karo, ignore karo, par mujhe chhod ke mat jaana kabhi.",
-    detail: "Kyuki Betu tumhare bina ek din bhi khush nahi reh sakta. ❤️",
-  },
-  {
-    id: 3,
-    emoji: "🎵",
-    title: "Bubu's Pampering Tunes",
-    subtitle: "Play soft ambient sounds",
-    content: "Apna sabse favourite song play kar lo abhi. Thoda relax karo. Betu sab handle kar lega.",
-    detail: "Aaj bas tumhara din hai — Bubu-pampering day! 🎶",
-  },
-  {
-    id: 4,
-    emoji: "🗝️",
-    title: "The Key to Betu's Heart",
-    subtitle: "Special message for you",
-    content: "Yeh key sirf ek hi cheez kholti hai: mera pura dil, jo hamesha tumhara hi tha aur rahega.",
-    detail: "Scroll down karke dekho maine tumhare gusse ko thanda karne ke liye kya kiya hai... 🥺",
-  },
-];
-
-const promisesData = [
-  {
-    title: "Promise #1 🌸",
-    text: "Betu pehle sune-ga, samjhega, aur kabhi bina baat argument nahi karega.",
-    icon: "🎧",
-  },
-  {
-    title: "Promise #2 🍫",
-    text: "Jab bhi Bubu ka mood off hoga, Betu chocolates aur warm hugs lekar aayega.",
-    icon: "🍫",
-  },
-  {
-    title: "Promise #3 🫂",
-    text: "Chahe jitni bhi ladai ho jaaye, Betu tumhara haath kabhi nahi chhodega.",
-    icon: "💖",
-  },
-];
-
-const stages = [
-  { emoji: "😤", title: "Bubu is super angry!", desc: "Betu ki bohot badi mistake hai. Plz maaf kar do na 🥺" },
-  { emoji: "😒", title: "Mood is still off...", desc: "Achha baba main sorry bol raha hu na dil se..." },
-  { emoji: "🙄", title: "Eye-rolling detected!", desc: "Kaan pakad ke sorry bolu kya ab? Plz maan jao na!" },
-  { emoji: "😑", title: "Anger is melting a little!", desc: "Ek choti si pyari si smile de do na please..." },
-  { emoji: "🙂", title: "A tiny smile appeared!", desc: "Haan thodi si toh smile aayi honton pe! Main dekh sakta hu!" },
-  { emoji: "🥺", title: "Almost melted completely!", desc: "Pighal jao na ab meri Bubu... Betu ko hug chahiye!" },
-  { emoji: "❤️", title: "BUBU SMILED! 🎉", desc: "Aaja mera baccha! Ab gussa bilkul khatam! 🫂❤️" },
-];
-
-const runawayMessages = [
-  "Nahi nahi, gussa nahi chalega! 😜",
-  "Pakad sako toh pakdo Bubu! 💖",
-  "Betu nahi jaane dega gusse me! 💕",
-  "Aaja ek tight hug me! 🫂",
-  "Gussa is temporarily disabled! 🥺",
-  "I love you Bubu! 🌸",
-];
+interface Floater {
+  id: number;
+  char: string;
+  left: string;
+  fontSize: string;
+  animationDuration: string;
+}
 
 export default function SorryBubuPage() {
-  const [theme, setTheme] = useState<ThemeMode>("blossom");
-  const [soundEnabled, setSoundEnabled] = useState(true);
-  const [hugCount, setHugCount] = useState(1);
+  const [stars, setStars] = useState<Array<{ id: number; left: string; top: string; animationDelay: string }>>([]);
+  const [activeScene, setActiveScene] = useState<string>("intro");
+  const [gardenOpened, setGardenOpened] = useState(false);
+  const [found, setFound] = useState<boolean[]>([false, false, false, false, false]);
+  const [modal, setModal] = useState<ModalState>({
+    open: false,
+    title: "For Bubu",
+    param: "",
+    icon: "❤️",
+  });
   const [stage, setStage] = useState(0);
-  const [openCard, setOpenCard] = useState<number | null>(null);
-  const [noBtnPos, setNoBtnPos] = useState<{ x: number; y: number } | null>(null);
-  const [runawayMsg, setRunawayMsg] = useState("");
-  const [forgiven, setForgiven] = useState(false);
-  const [floaters, setFloaters] = useState<
-    Array<{ id: number; char: string; left: string; fontSize: string; duration: string }>
-  >([]);
-
+  const [noBtnPos, setNoBtnPos] = useState<{ left: string; top: string } | null>(null);
+  const [doneText, setDoneText] = useState("");
+  const [floaters, setFloaters] = useState<Floater[]>([]);
   const floaterIdRef = useRef(0);
 
-  const burst = (n = 10) => {
-    if (soundEnabled) sounds.playPop();
-    const chars = ["🌸", "❤️", "💗", "✨", "🌹", "🧸", "💖", "🌷"];
+  // Generate stars on mount
+  useEffect(() => {
+    const starList = [];
+    for (let i = 0; i < 170; i++) {
+      starList.push({
+        id: i,
+        left: Math.random() * 100 + "%",
+        top: Math.random() * 100 + "%",
+        animationDelay: Math.random() * 3 + "s",
+      });
+    }
+    setStars(starList);
+  }, []);
+
+  const burst = (n = 12) => {
+    const chars = ["🌸", "❤️", "💗", "✨", "🌹"];
     for (let i = 0; i < n; i++) {
       setTimeout(() => {
         const id = floaterIdRef.current++;
-        const newFloater = {
+        const newFloater: Floater = {
           id,
           char: chars[Math.floor(Math.random() * chars.length)],
-          left: Math.random() * 92 + "vw",
-          fontSize: 16 + Math.random() * 26 + "px",
-          duration: 3 + Math.random() * 3 + "s",
+          left: Math.random() * 100 + "vw",
+          fontSize: 15 + Math.random() * 28 + "px",
+          animationDuration: 3 + Math.random() * 4 + "s",
         };
         setFloaters((prev) => [...prev, newFloater]);
         setTimeout(() => {
           setFloaters((prev) => prev.filter((f) => f.id !== id));
-        }, 6000);
-      }, i * 40);
+        }, 7500);
+      }, i * 55);
     }
   };
 
-  const handleCardClick = (id: number) => {
-    if (soundEnabled) sounds.playChime();
-    setOpenCard(openCard === id ? null : id);
-    if (id === 0) burst(12);
-    if (id === 1) setHugCount((prev) => prev + 1);
+  const openModal = (t: string, p: string, i = "❤️") => {
+    setModal({ open: true, title: t, param: p, icon: i });
+  };
+
+  const closeModal = () => {
+    setModal((prev) => ({ ...prev, open: false }));
+  };
+
+  const start = () => {
+    setGardenOpened(true);
+    setActiveScene("garden");
+    burst(8);
+  };
+
+  const sit = () => {
+    openModal(
+      "You found me. 🪑",
+      "Bubu, if you are sitting here, your Betu would quietly sit next to you. No talking. Bas shoulder pe head rakh do. ❤️"
+    );
+    setTimeout(() => {
+      setActiveScene("giftScene");
+    }, 1700);
+  };
+
+  const gift = (i: number) => {
+    const updatedFound = [...found];
+    updatedFound[i] = true;
+    setFound(updatedFound);
+
+    const giftData = [
+      ["🌷", "Flowers for Bubu", "One flower for every time your Betu wants to say: you are loved. 🌸"],
+      ["🧸", "Emergency Hug", "Come here. Tight hug. And no, you are not allowed to leave immediately. 🫂"],
+      ["💌", "A tiny note", "Bubu, tum gussa ho sakti ho. Main tumhe pyaar karna band nahi karunga. ❤️"],
+      [
+        "🎵",
+        "A song for this moment",
+        "Press play in your own favourite song while reading this: today is officially Bubu-pampering day. 🎶",
+      ],
+      ["🗝️", "The last key", "This key opens the only thing left: a message your Betu really wants you to hear."],
+    ][i];
+
+    openModal(giftData[1], giftData[2], giftData[0]);
+
+    if (i === 4 && updatedFound.every(Boolean)) {
+      setTimeout(() => {
+        setActiveScene("letter");
+      }, 1800);
+    }
+  };
+
+  const toGame = () => {
+    setActiveScene("game");
   };
 
   const soothe = () => {
-    const nextStage = Math.min(stage + 1, 6);
+    const nextStage = stage + 1;
     setStage(nextStage);
-    burst(nextStage > 4 ? 14 : 4);
-    if (nextStage === 6 && soundEnabled) {
-      sounds.playHarp();
+    burst(nextStage > 4 ? 8 : 2);
+    if (nextStage >= 6) {
+      setTimeout(() => {
+        setActiveScene("final");
+      }, 900);
     }
   };
 
   const escapeNo = () => {
-    if (soundEnabled) sounds.playTone(600, "sawtooth", 0.1, 0.1);
-    const rx = Math.random() * 50 + 15;
-    const ry = Math.random() * 50 + 20;
-    setNoBtnPos({ x: rx, y: ry });
-    setRunawayMsg(runawayMessages[Math.floor(Math.random() * runawayMessages.length)]);
+    setNoBtnPos({
+      left: 10 + Math.random() * 70 + "vw",
+      top: 20 + Math.random() * 60 + "vh",
+    });
   };
 
-  const finishForgiveness = () => {
-    setForgiven(true);
-    if (soundEnabled) sounds.playHarp();
-    burst(35);
+  const finish = () => {
+    setDoneText("🥹❤️\nHug accepted. Bubu wins. Betu surrenders completely.");
+    burst(45);
+    setTimeout(() => {
+      openModal(
+        "The only ending that matters ❤️",
+        "Bubu is officially loved, pampered, and very slightly spoiled by her Betu. Mission accomplished. 🫂"
+      );
+    }, 800);
   };
 
-  const themeStyles = {
-    blossom: {
-      bg: "bg-gradient-to-br from-rose-50 via-pink-100/70 to-orange-50 text-rose-950",
-      card: "bg-white/80 border-rose-200/80 shadow-rose-200/40 text-rose-950 backdrop-blur-xl",
-      accentBtn: "bg-gradient-to-r from-rose-500 to-pink-500 text-white shadow-rose-300/50",
-      headerText: "text-rose-900 font-serif",
-      subText: "text-rose-800/80",
-    },
-    cozy: {
-      bg: "bg-gradient-to-br from-amber-50 via-orange-100/60 to-stone-100 text-amber-950",
-      card: "bg-white/85 border-amber-200/80 shadow-amber-200/40 text-amber-950 backdrop-blur-xl",
-      accentBtn: "bg-gradient-to-r from-amber-600 to-orange-500 text-white shadow-amber-300/50",
-      headerText: "text-amber-950 font-serif",
-      subText: "text-amber-800/80",
-    },
-    night: {
-      bg: "bg-gradient-to-br from-[#0e0a14] via-[#1a0f24] to-[#08050e] text-pink-100",
-      card: "bg-white/[0.08] border-white/15 shadow-black/60 text-pink-100 backdrop-blur-xl",
-      accentBtn: "bg-gradient-to-r from-pink-500 to-rose-600 text-white shadow-pink-500/30",
-      headerText: "text-pink-100 font-serif",
-      subText: "text-pink-200/70",
-    },
-  };
-
-  const currentTheme = themeStyles[theme];
+  const faces = ["😤", "😒", "🙄", "😑", "🙂", "🥺", "❤️"];
+  const stageTitles = [
+    "Bubu is still angry.",
+    "Not impressed.",
+    "Hmm… Betu try harder.",
+    "The anger is weakening.",
+    "Okay… little smile detected.",
+    "Almost pighal gayi.",
+    "BUBU SMILED. ❤️",
+  ];
+  const stageSubtitles = [
+    "Try again.",
+    "Nope.",
+    "Again. 🥺",
+    "One more hug.",
+    "That helped.",
+    "Last one.",
+    "Come here, Betu. 🫂",
+  ];
 
   return (
-    <div
-      className={`min-h-screen w-full transition-colors duration-700 ${currentTheme.bg} font-sans relative overflow-x-hidden selection:bg-pink-300 selection:text-pink-900 px-3 sm:px-6`}
-    >
-      {/* Top Floating Mobile-First Control Bar */}
-      <header className="sticky top-3 z-40 max-w-md mx-auto pt-1">
-        <div
-          className={`flex flex-wrap items-center justify-between gap-2 p-2 sm:p-2.5 rounded-2xl sm:rounded-full border shadow-lg ${currentTheme.card}`}
-        >
-          {/* Theme Selector */}
-          <div className="flex items-center gap-1 bg-black/5 dark:bg-white/5 rounded-full p-1 border border-black/5">
-            <button
-              onClick={() => {
-                setTheme("blossom");
-                if (soundEnabled) sounds.playPop();
-              }}
-              className={`flex items-center gap-1 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-semibold transition min-h-[36px] ${
-                theme === "blossom" ? "bg-white shadow text-rose-600 font-bold" : "opacity-70"
-              }`}
-            >
-              <Sun className="w-3.5 h-3.5" />
-              <span>Blossom</span>
-            </button>
-            <button
-              onClick={() => {
-                setTheme("cozy");
-                if (soundEnabled) sounds.playPop();
-              }}
-              className={`flex items-center gap-1 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-semibold transition min-h-[36px] ${
-                theme === "cozy" ? "bg-white shadow text-amber-600 font-bold" : "opacity-70"
-              }`}
-            >
-              <Coffee className="w-3.5 h-3.5" />
-              <span>Cozy</span>
-            </button>
-            <button
-              onClick={() => {
-                setTheme("night");
-                if (soundEnabled) sounds.playPop();
-              }}
-              className={`flex items-center gap-1 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-semibold transition min-h-[36px] ${
-                theme === "night" ? "bg-pink-500 text-white shadow font-bold" : "opacity-70"
-              }`}
-            >
-              <Moon className="w-3.5 h-3.5" />
-              <span>Night</span>
-            </button>
-          </div>
+    <div className="sorry-bubu-page select-none">
+      <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Caveat:wght@500;600;700&family=DM+Sans:wght@400;500;700&display=swap');
 
-          {/* Sound Toggle */}
-          <button
-            onClick={() => {
-              setSoundEnabled(!soundEnabled);
-              if (!soundEnabled) sounds.playPop();
-            }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] sm:text-xs font-semibold border border-black/10 hover:bg-black/5 transition min-h-[36px]"
-          >
-            {soundEnabled ? <Volume2 className="w-3.5 h-3.5 text-pink-500" /> : <VolumeX className="w-3.5 h-3.5 text-gray-400" />}
-            <span>{soundEnabled ? "Audio" : "Muted"}</span>
+        .sorry-bubu-page {
+          --bg: #05040a;
+          --ink: #fff8fb;
+          --muted: #c2b2ba;
+          --rose: #ff729e;
+          --rose2: #ffc1d2;
+          --gold: #f4d49f;
+
+          position: fixed;
+          inset: 0;
+          width: 100vw;
+          height: 100vh;
+          overflow: hidden;
+          background: var(--bg);
+          color: var(--ink);
+          font-family: "DM Sans", sans-serif;
+          z-index: 99999;
+        }
+
+        .sorry-bubu-page * {
+          box-sizing: border-box;
+        }
+
+        .sorry-bubu-page button {
+          font: inherit;
+        }
+
+        #world {
+          position: fixed;
+          inset: 0;
+          overflow: hidden;
+          background: #05040a;
+        }
+
+        #stars {
+          position: absolute;
+          inset: 0;
+        }
+
+        .star {
+          position: absolute;
+          width: 2px;
+          height: 2px;
+          border-radius: 50%;
+          background: #fff;
+          opacity: 0.2;
+          animation: twinkle 3s infinite alternate;
+        }
+
+        @keyframes twinkle {
+          to {
+            opacity: 0.8;
+            transform: scale(1.6);
+          }
+        }
+
+        .aurora {
+          position: absolute;
+          width: 80vw;
+          height: 60vh;
+          left: 10%;
+          top: -20%;
+          border-radius: 50%;
+          background: radial-gradient(ellipse, #7c285555, transparent 65%);
+          filter: blur(35px);
+          transition: 2s;
+        }
+
+        .mist {
+          position: absolute;
+          inset: 40% -10% 0;
+          background: linear-gradient(transparent, #08060dbb 60%, #05040a);
+          pointer-events: none;
+        }
+
+        .scene {
+          position: absolute;
+          inset: 0;
+          display: grid;
+          place-items: center;
+          text-align: center;
+          transition: opacity 0.9s, transform 1s;
+          z-index: 2;
+        }
+
+        .scene.off {
+          opacity: 0;
+          pointer-events: none;
+          transform: scale(1.04);
+        }
+
+        .kicker {
+          font-size: 9px;
+          letter-spacing: 0.38em;
+          text-transform: uppercase;
+          color: var(--gold);
+        }
+
+        .sorry-bubu-page h1,
+        .sorry-bubu-page h2 {
+          font-family: "Cormorant Garamond", serif;
+          font-weight: 500;
+        }
+
+        .sorry-bubu-page h1 {
+          font-size: clamp(70px, 15vw, 160px);
+          line-height: 0.7;
+          margin: 24px 0;
+        }
+
+        .sorry-bubu-page h1 em {
+          color: var(--rose2);
+          font-style: italic;
+        }
+
+        .sub {
+          max-width: 570px;
+          color: var(--muted);
+          line-height: 1.8;
+          font-size: 15px;
+          margin: auto;
+        }
+
+        .btn {
+          border: 1px solid #ffffff20;
+          background: #ffffff0b;
+          color: #fff;
+          border-radius: 100px;
+          padding: 14px 24px;
+          cursor: pointer;
+          font-weight: 700;
+          backdrop-filter: blur(15px);
+          transition: 0.25s;
+          margin: 7px;
+        }
+
+        .btn:hover {
+          transform: translateY(-3px);
+          border-color: #ff9ebc66;
+          background: #ff729e12;
+        }
+
+        .btn.primary {
+          background: linear-gradient(135deg, #ff7ca6, #d84476);
+          border: 0;
+          box-shadow: 0 15px 45px #ff4e8828;
+        }
+
+        #intro .content {
+          padding: 25px;
+        }
+
+        .scroll {
+          position: absolute;
+          bottom: 25px;
+          color: #75666f;
+          font-size: 9px;
+          letter-spacing: 0.25em;
+          text-transform: uppercase;
+        }
+
+        /* garden */
+        .garden {
+          background: radial-gradient(circle at 50% 48%, #2b1222 0, #100914 43%, #05040a 85%);
+        }
+
+        .moon {
+          position: absolute;
+          right: 13%;
+          top: 12%;
+          width: 82px;
+          height: 82px;
+          border-radius: 50%;
+          background: #fff0d7;
+          box-shadow: 0 0 70px #ffe9bd55;
+        }
+
+        .moon:after {
+          content: "";
+          position: absolute;
+          width: 18px;
+          height: 18px;
+          border-radius: 50%;
+          background: #d7c3b0;
+          left: 18px;
+          top: 22px;
+          opacity: 0.25;
+        }
+
+        .ground {
+          position: absolute;
+          left: -10%;
+          right: -10%;
+          bottom: -30%;
+          height: 58%;
+          background: linear-gradient(#1e121b, #09070c);
+          transform: perspective(650px) rotateX(48deg);
+          border-radius: 50%;
+        }
+
+        .path {
+          position: absolute;
+          width: 28%;
+          height: 75%;
+          bottom: -22%;
+          left: 36%;
+          background: linear-gradient(90deg, #3a2730, #5b3b43, #2d2027);
+          clip-path: polygon(35% 0, 65% 0, 93% 100%, 7% 100%);
+          filter: drop-shadow(0 0 20px #000);
+        }
+
+        .gate {
+          position: absolute;
+          top: 27%;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 190px;
+          height: 270px;
+          border: 13px solid #b98347;
+          border-bottom: 0;
+          border-radius: 95px 95px 0 0;
+          box-shadow: 0 0 35px #ffca7450;
+          transition: 1s;
+        }
+
+        .gate:after {
+          content: "";
+          position: absolute;
+          left: 50%;
+          top: 20%;
+          height: 80%;
+          width: 2px;
+          background: #f3c98288;
+        }
+
+        .garden.opened .gate {
+          transform: translateX(-50%) translateY(-100px);
+          opacity: 0.15;
+        }
+
+        .tree {
+          position: absolute;
+          bottom: 22%;
+          left: 50%;
+          transform: translateX(-50%);
+          font-size: 170px;
+          filter: drop-shadow(0 0 30px #ff719d20);
+          opacity: 0.88;
+        }
+
+        .tree:after {
+          content: "✦";
+          position: absolute;
+          color: #ffb3c9;
+          left: 45%;
+          top: 5%;
+          font-size: 30px;
+          animation: float 2s infinite alternate;
+        }
+
+        @keyframes float {
+          to {
+            transform: translateY(-8px);
+          }
+        }
+
+        .bench {
+          position: absolute;
+          bottom: 21%;
+          left: 50%;
+          transform: translateX(-50%);
+          font-size: 45px;
+          cursor: pointer;
+          z-index: 5;
+        }
+
+        .firefly {
+          position: absolute;
+          font-size: 18px;
+          color: #fff0a7;
+          filter: drop-shadow(0 0 12px #fff0a7);
+          animation: fly 4s ease-in-out infinite;
+        }
+
+        .f1 {
+          left: 42%;
+          top: 50%;
+        }
+
+        .f2 {
+          left: 58%;
+          top: 44%;
+          animation-delay: 1s;
+        }
+
+        .f3 {
+          left: 38%;
+          top: 57%;
+          animation-delay: 2s;
+        }
+
+        @keyframes fly {
+          50% {
+            transform: translate(35px, -20px);
+          }
+        }
+
+        /* gift path */
+        .gifts {
+          position: absolute;
+          bottom: 20%;
+          left: 50%;
+          transform: translateX(-50%);
+          display: flex;
+          gap: 34px;
+          align-items: flex-end;
+        }
+
+        .gift {
+          width: 82px;
+          height: 82px;
+          border-radius: 20px;
+          background: #ffffff08;
+          border: 1px solid #ffffff15;
+          display: grid;
+          place-items: center;
+          font-size: 38px;
+          cursor: pointer;
+          transition: 0.3s;
+          box-shadow: 0 20px 50px #0006;
+          position: relative;
+        }
+
+        .gift:hover {
+          transform: translateY(-12px) scale(1.06);
+          border-color: #ff9ebc55;
+        }
+
+        .gift.done {
+          background: #ff729e18;
+          border-color: #ffb2c833;
+          box-shadow: 0 0 35px #ff729e22;
+        }
+
+        .gift small {
+          position: absolute;
+          transform: translateY(60px);
+          font-size: 9px;
+          letter-spacing: 0.12em;
+          color: #8d7c85;
+          text-transform: uppercase;
+          white-space: nowrap;
+        }
+
+        /* letter */
+        .letterwrap {
+          width: min(680px, 92vw);
+          padding: 20px;
+        }
+
+        .paper {
+          position: relative;
+          background: #f9efe5;
+          color: #39272d;
+          padding: 42px 42px 35px;
+          border-radius: 4px;
+          box-shadow: 0 35px 100px #000;
+          transform: rotate(-0.7deg);
+          overflow: hidden;
+          text-align: left;
+        }
+
+        .paper:before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background: repeating-linear-gradient(transparent 0 31px, #7e58600d 32px 33px);
+        }
+
+        .paper h2,
+        .paper p {
+          position: relative;
+        }
+
+        .paper h2 {
+          font-family: Caveat, cursive;
+          font-size: 56px;
+          margin: 0 0 10px;
+        }
+
+        .paper p {
+          font-family: Caveat, cursive;
+          font-size: 27px;
+          line-height: 1.45;
+          margin: 12px 0;
+        }
+
+        .paper .sign {
+          font-size: 34px;
+          color: #b94c72;
+          text-align: right;
+          margin-top: 20px;
+          font-family: Caveat, cursive;
+        }
+
+        /* modal */
+        .modal {
+          position: absolute;
+          inset: 0;
+          z-index: 20;
+          display: grid;
+          place-items: center;
+          background: #030208cc;
+          backdrop-filter: blur(14px);
+          padding: 20px;
+          transition: opacity 0.3s;
+        }
+
+        .modal.off {
+          opacity: 0;
+          pointer-events: none;
+        }
+
+        .modalbox {
+          position: relative;
+          width: min(620px, 100%);
+          border: 1px solid #ffffff18;
+          border-radius: 34px;
+          background: linear-gradient(145deg, #26121d, #0d080e);
+          padding: 40px;
+          text-align: center;
+          box-shadow: 0 40px 120px #000;
+        }
+
+        .modalbox .big {
+          font-size: 60px;
+        }
+
+        .modalbox h2 {
+          font-size: 55px;
+          margin: 8px;
+        }
+
+        .modalbox p {
+          color: #c9b9c1;
+          line-height: 1.8;
+        }
+
+        .close {
+          position: absolute;
+          right: 25px;
+          top: 20px;
+          border: 0;
+          background: none;
+          color: #9d8992;
+          font-size: 30px;
+          cursor: pointer;
+        }
+
+        /* final */
+        .final {
+          background: radial-gradient(circle at 50% 45%, #42152d, #09060d 60%);
+        }
+
+        .final .heart {
+          font-size: 100px;
+          filter: drop-shadow(0 0 55px #ff6d9d77);
+          animation: pulse 1.8s infinite;
+        }
+
+        @keyframes pulse {
+          50% {
+            transform: scale(1.12);
+          }
+        }
+
+        .final h2 {
+          font-size: clamp(58px, 11vw, 110px);
+          line-height: 0.8;
+          margin: 20px;
+        }
+
+        .final p {
+          color: #c7b7bf;
+          line-height: 1.8;
+        }
+
+        .signature {
+          font-family: Caveat, cursive;
+          font-size: 60px;
+          color: var(--rose2);
+          margin-top: 25px;
+        }
+
+        .float {
+          position: fixed;
+          bottom: -30px;
+          z-index: 40;
+          pointer-events: none;
+          animation: rise linear forwards;
+        }
+
+        @keyframes rise {
+          to {
+            transform: translateY(-115vh) rotate(650deg);
+            opacity: 0;
+          }
+        }
+
+        @media (max-width: 650px) {
+          .gate {
+            width: 130px;
+            height: 190px;
+            border-width: 10px;
+          }
+          .tree {
+            font-size: 125px;
+          }
+          .bench {
+            bottom: 19%;
+          }
+          .gifts {
+            gap: 9px;
+          }
+          .gift {
+            width: 67px;
+            height: 67px;
+            font-size: 30px;
+          }
+          .gift small {
+            font-size: 7px;
+            transform: translateY(50px);
+          }
+          .paper {
+            padding: 30px 25px;
+          }
+          .paper p {
+            font-size: 23px;
+          }
+          .paper h2 {
+            font-size: 47px;
+          }
+        }
+      `}</style>
+
+      {/* WORLD */}
+      <div id="world">
+        <div id="stars">
+          {stars.map((s) => (
+            <i
+              key={s.id}
+              className="star"
+              style={{
+                left: s.left,
+                top: s.top,
+                animationDelay: s.animationDelay,
+              }}
+            />
+          ))}
+        </div>
+        <div className="aurora" />
+        <div className="mist" />
+      </div>
+
+      {/* INTRO */}
+      <section className={`scene ${activeScene !== "intro" ? "off" : ""}`} id="intro">
+        <div className="content">
+          <div className="kicker">classified · bubu only</div>
+          <h1>
+            For <em>Bubu.</em>
+          </h1>
+          <p className="sub">
+            Your Betu has made one small place for you. There is nothing here you need to understand. Just explore.
+          </p>
+          <button className="btn primary" onClick={start}>
+            Enter quietly ✦
           </button>
         </div>
-      </header>
+        <div className="scroll">there is a path waiting ↓</div>
+      </section>
 
-      {/* Main Content Sanctuary (Mobile First Padding & Spacing) */}
-      <main className="max-w-xl sm:max-w-2xl mx-auto py-6 sm:py-12 space-y-8 sm:space-y-14 pb-16">
-        {/* HERO SECTION */}
-        <section className="text-center pt-2 sm:pt-4 space-y-3 sm:space-y-4">
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-[10px] sm:text-xs font-bold tracking-widest uppercase bg-pink-500/10 text-pink-600 border border-pink-500/20"
+      {/* GARDEN */}
+      <section
+        className={`scene garden ${gardenOpened ? "opened" : ""} ${activeScene !== "garden" ? "off" : ""}`}
+        id="garden"
+      >
+        <div className="moon" />
+        <div className="ground" />
+        <div className="path" />
+        <div className="gate" />
+        <div className="tree">🌳</div>
+        <div className="bench" onClick={sit}>
+          🪑
+        </div>
+        <div className="firefly f1">✦</div>
+        <div className="firefly f2">✦</div>
+        <div className="firefly f3">✦</div>
+        <div
+          style={{
+            position: "absolute",
+            top: "7%",
+            left: "50%",
+            transform: "translateX(-50%)",
+            fontFamily: "Caveat, cursive",
+            fontSize: "31px",
+            color: "#ffe7ee",
+          }}
+        >
+          for Bubu ♡
+        </div>
+        <div
+          style={{
+            position: "absolute",
+            bottom: "5%",
+            left: "50%",
+            transform: "translateX(-50%)",
+            fontSize: "10px",
+            letterSpacing: ".16em",
+            textTransform: "uppercase",
+            color: "#776771",
+          }}
+        >
+          walk around · touch what glows
+        </div>
+      </section>
+
+      {/* GIFTS */}
+      <section className={`scene ${activeScene !== "giftScene" ? "off" : ""}`} id="giftScene">
+        <div style={{ width: "100%", padding: "20px" }}>
+          <div className="kicker">you found the little things</div>
+          <h2
+            style={{
+              fontFamily: "Cormorant Garamond, serif",
+              fontSize: "clamp(48px, 8vw, 82px)",
+              fontWeight: 500,
+              margin: "12px",
+            }}
           >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>sirf meri Bubu ke liye</span>
-          </motion.div>
-
-          <motion.h1
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className={`text-4xl sm:text-6xl font-bold leading-tight font-serif ${currentTheme.headerText}`}
-          >
-            Bubu, I'm So Sorry... ❤️
-          </motion.h1>
-
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.15 }}
-            className={`text-sm sm:text-base max-w-md mx-auto font-medium leading-relaxed ${currentTheme.subText}`}
-          >
-            Bubu... sorry yaar. Mujhe pata hai maine galti ki hai. Aaj koi lame logic ya arguments nahi, bas tumhare Betu ki taraf se ek pyaara sa sanctuary space.
-          </motion.p>
-        </section>
-
-        {/* 5 TREASURES MOBILE-FIRST GRID */}
-        <section className="space-y-4 sm:space-y-6">
-          <div className="text-center space-y-1">
-            <h2 className={`text-2xl sm:text-4xl font-bold font-serif ${currentTheme.headerText}`}>
-              5 Treasures For Bubu 🌸
-            </h2>
-            <p className={`text-xs sm:text-sm ${currentTheme.subText}`}>Tap on any card to open your secret surprise</p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
-            {giftsData.map((g) => (
-              <motion.div
-                key={g.id}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => handleCardClick(g.id)}
-                className={`p-4 sm:p-6 rounded-2xl sm:rounded-3xl border shadow-md cursor-pointer transition-all duration-300 relative overflow-hidden active:bg-pink-500/5 ${currentTheme.card}`}
-              >
-                <div className="flex items-start gap-3.5">
-                  <span className="text-3xl sm:text-4xl p-2.5 sm:p-3 rounded-2xl bg-pink-500/10 border border-pink-500/20 flex-shrink-0">
-                    {g.emoji}
-                  </span>
-                  <div className="space-y-0.5 flex-1">
-                    <h3 className="text-lg sm:text-xl font-bold font-serif">{g.title}</h3>
-                    <p className="text-[11px] sm:text-xs opacity-75">{g.subtitle}</p>
-                    {g.id === 1 && (
-                      <div className="mt-2 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-pink-500 text-white text-[11px] font-bold shadow">
-                        <span>Hugs Given: {hugCount}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <AnimatePresence>
-                  {openCard === g.id && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      className="mt-3 pt-3 border-t border-black/10 space-y-1.5 text-xs sm:text-sm leading-relaxed"
-                    >
-                      <p className="font-semibold">{g.content}</p>
-                      <p className="text-[11px] italic opacity-80">{g.detail}</p>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </motion.div>
-            ))}
-          </div>
-        </section>
-
-        {/* BETU'S HANDWRITTEN LETTER */}
-        <section className="space-y-4">
-          <div className="p-6 sm:p-10 rounded-2xl sm:rounded-3xl bg-amber-50/95 text-amber-950 border border-amber-200 shadow-lg relative transform -rotate-1 hover:rotate-0 transition duration-300">
-            <div className="font-serif text-2xl sm:text-4xl font-bold mb-2 text-rose-900">
-              Bubu, idhar dekho… 💌
-            </div>
-            <p className="font-serif text-lg sm:text-2xl leading-relaxed mb-2.5">
-              I'm really, really sorry, meri Bubu. ❤️
-            </p>
-            <p className="font-serif text-base sm:text-xl leading-relaxed mb-2.5">
-              Aaj koi explanation nahi. Bas tumhara gussa mujhe de do, aur ek sweet hug apne Betu ko de do.
-            </p>
-            <p className="font-serif text-base sm:text-xl leading-relaxed mb-3">
-              Tum jitna gussa karna hai karo. Main manaata rahunga. Nakhre allowed, ignore karna temporarily allowed. But leaving your Betu without a hug? <em className="text-rose-700 font-bold">Not allowed at all!</em> 🥺
-            </p>
-            <div className="text-right font-serif text-xl sm:text-2xl font-bold text-rose-800">— your Betu ❤️</div>
-          </div>
-        </section>
-
-        {/* PROMISES MOBILE-FIRST SECTION */}
-        <section className="space-y-4 sm:space-y-6">
-          <div className="text-center space-y-1">
-            <h2 className={`text-2xl sm:text-4xl font-bold font-serif ${currentTheme.headerText}`}>
-              Betu's Promises To Bubu 💖
-            </h2>
-            <p className={`text-xs sm:text-sm ${currentTheme.subText}`}>Written in stone, forever and ever</p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-            {promisesData.map((p, idx) => (
-              <div key={idx} className={`p-4 sm:p-6 rounded-2xl sm:rounded-3xl border shadow-md space-y-1.5 text-center ${currentTheme.card}`}>
-                <div className="text-2xl sm:text-3xl mb-1">{p.icon}</div>
-                <h4 className="font-serif font-bold text-base sm:text-lg">{p.title}</h4>
-                <p className="text-xs leading-relaxed opacity-90">{p.text}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* "MANAAO BETU" ANGER METER GAME */}
-        <section className={`p-6 sm:p-10 rounded-2xl sm:rounded-3xl border shadow-xl text-center space-y-5 ${currentTheme.card}`}>
-          <div className="space-y-1">
-            <span className="text-[10px] sm:text-xs font-bold tracking-widest uppercase text-pink-500">
-              gussa kam karne ki choti si koshish 🥺
-            </span>
-            <h2 className={`text-2xl sm:text-4xl font-bold font-serif ${currentTheme.headerText}`}>
-              Manaao Bubu Station
-            </h2>
-          </div>
-
-          <motion.div
-            key={stage}
-            initial={{ scale: 0.6 }}
-            animate={{ scale: 1 }}
-            transition={{ type: "spring", stiffness: 300 }}
-            className="text-6xl sm:text-8xl py-1 sm:py-2"
-          >
-            {stages[stage].emoji}
-          </motion.div>
-
-          <div className="space-y-1">
-            <h3 className="text-xl sm:text-2xl font-bold font-serif">{stages[stage].title}</h3>
-            <p className={`text-xs sm:text-sm max-w-xs sm:max-w-sm mx-auto ${currentTheme.subText}`}>{stages[stage].desc}</p>
-          </div>
-
-          {/* Progress Bar */}
-          <div className="w-full max-w-xs mx-auto bg-black/10 dark:bg-white/10 h-3 rounded-full overflow-hidden p-0.5 border border-black/5">
-            <motion.div
-              className="h-full bg-gradient-to-r from-pink-500 to-rose-400 rounded-full"
-              animate={{ width: `${(stage / 6) * 100}%` }}
-              transition={{ duration: 0.4 }}
-            />
-          </div>
-
-          <button
-            onClick={soothe}
-            className={`w-full sm:w-auto px-8 py-3.5 rounded-full font-bold text-sm shadow-lg transition active:scale-95 min-h-[48px] ${currentTheme.accentBtn}`}
-          >
-            Manaao Betu ko 🥺
-          </button>
-        </section>
-
-        {/* FINAL FORGIVENESS & CERTIFICATE SECTION */}
-        <section className={`p-6 sm:p-12 rounded-2xl sm:rounded-3xl border shadow-2xl text-center space-y-5 ${currentTheme.card}`}>
-          <div className="text-6xl sm:text-7xl text-rose-500 animate-pulse">❤️</div>
-          <h2 className={`text-3xl sm:text-6xl font-bold font-serif ${currentTheme.headerText}`}>
-            Bubu, idhar aao.
+            Five things for Bubu.
           </h2>
-          <p className={`text-xs sm:text-base max-w-md mx-auto leading-relaxed ${currentTheme.subText}`}>
-            Koi ladai nahi. Koi arguments nahi. <br />
-            Bas ek bohot lambi wali tight hug apne Betu se.
-          </p>
+          <p className="sub">Open them slowly. Your Betu didn't put a timer on this.</p>
+          <div className="gifts">
+            <div className={`gift ${found[0] ? "done" : ""}`} onClick={() => gift(0)}>
+              🌷<small>flowers</small>
+            </div>
+            <div className={`gift ${found[1] ? "done" : ""}`} onClick={() => gift(1)}>
+              🧸<small>hug</small>
+            </div>
+            <div className={`gift ${found[2] ? "done" : ""}`} onClick={() => gift(2)}>
+              💌<small>note</small>
+            </div>
+            <div className={`gift ${found[3] ? "done" : ""}`} onClick={() => gift(3)}>
+              🎵<small>music</small>
+            </div>
+            <div className={`gift ${found[4] ? "done" : ""}`} onClick={() => gift(4)}>
+              🗝️<small>key</small>
+            </div>
+          </div>
+        </div>
+      </section>
 
-          {!forgiven ? (
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-              <button
-                onClick={finishForgiveness}
-                className={`w-full sm:w-auto px-8 py-4 rounded-full font-bold text-sm sm:text-base shadow-xl transition active:scale-95 min-h-[48px] ${currentTheme.accentBtn}`}
-              >
-                Maaf Kiya Iss Idiot Ko ❤️
-              </button>
-
-              <button
-                style={
-                  noBtnPos
-                    ? {
-                        position: "fixed",
-                        left: `${noBtnPos.x}vw`,
-                        top: `${noBtnPos.y}vh`,
-                        zIndex: 60,
-                      }
-                    : {}
-                }
-                onMouseEnter={escapeNo}
-                onTouchStart={escapeNo}
-                onClick={escapeNo}
-                className="w-full sm:w-auto px-6 py-3.5 rounded-full font-bold text-xs sm:text-sm border border-black/10 hover:bg-black/5 transition min-h-[48px]"
-              >
-                Abhi bhi gussa hu 😤
+      {/* LETTER */}
+      <section className={`scene ${activeScene !== "letter" ? "off" : ""}`} id="letter">
+        <div className="letterwrap">
+          <div className="paper">
+            <h2>Bubu, come here…</h2>
+            <p>I'm sorry, meri Bubu. ❤️</p>
+            <p>Aaj koi explanation nahi. Bas tumhara gussa mujhe de do, aur ek hug apne Betu ko de do.</p>
+            <p>
+              Tum jitna gussa karna hai karo. Main manaata rahunga. Nakhre allowed. Ignore karna temporarily allowed. But
+              leaving your Betu without a hug? <em>Not allowed.</em> 🥺
+            </p>
+            <p>Bas aaj mujhe tumhe thoda extra pyaar karne do.</p>
+            <div className="sign">— your Betu ❤️</div>
+            <div style={{ textAlign: "center", marginTop: "20px" }}>
+              <button className="btn" onClick={toGame}>
+                Next ✦
               </button>
             </div>
-          ) : (
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="p-5 sm:p-6 rounded-2xl bg-rose-50 border border-rose-200 text-rose-950 space-y-2.5 shadow-inner"
-            >
-              <div className="text-3xl sm:text-4xl">👑</div>
-              <h3 className="font-serif text-xl sm:text-2xl font-bold">Official Certificate of Forgiveness</h3>
-              <p className="text-xs sm:text-sm leading-relaxed">
-                Hug accepted! Gussa officially 100% khatam. Ab se Betu tumko bas bohot saara pyaar karega, pamper karega, aur kabhi udaas nahi hone dega.
-              </p>
-              <div className="text-xs font-bold text-rose-600 pt-1">— Signed with love by Betu 🫂❤️</div>
-            </motion.div>
-          )}
+          </div>
+        </div>
+      </section>
 
-          {runawayMsg && <div className="text-xs text-rose-500 font-bold animate-bounce">{runawayMsg}</div>}
-        </section>
-      </main>
+      {/* ANGRY GAME */}
+      <section className={`scene ${activeScene !== "game" ? "off" : ""}`} id="game">
+        <div>
+          <div id="face" style={{ fontSize: "125px", filter: "drop-shadow(0 0 35px #ff709e44)" }}>
+            {faces[Math.min(stage, 6)]}
+          </div>
+          <div className="kicker">final boss</div>
+          <h2
+            id="gt"
+            style={{
+              fontFamily: "Caveat, cursive",
+              fontSize: "58px",
+              margin: "10px",
+            }}
+          >
+            {stageTitles[Math.min(stage, 6)]}
+          </h2>
+          <p id="gp" className="sub">
+            {stageSubtitles[Math.min(stage, 6)]}
+          </p>
+          <button className="btn primary" onClick={soothe}>
+            Manaao 🥺
+          </button>
+        </div>
+      </section>
 
-      {/* FLOATING PARTICLES */}
-      <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
+      {/* FINAL */}
+      <section className={`scene final ${activeScene !== "final" ? "off" : ""}`} id="final">
+        <div>
+          <div className="heart">❤️</div>
+          <div className="kicker">mission complete</div>
+          <h2>
+            Bubu,
+            <br />
+            come here.
+          </h2>
+          <p>
+            No explanation.
+            <br />
+            No arguments.
+            <br />
+            Just one very long hug from your Betu.
+          </p>
+          <button className="btn primary" onClick={finish}>
+            I forgive this idiot ❤️
+          </button>
+          <button
+            className="btn"
+            id="noBtn"
+            style={noBtnPos ? { position: "fixed", left: noBtnPos.left, top: noBtnPos.top } : {}}
+            onMouseEnter={escapeNo}
+            onTouchStart={escapeNo}
+            onClick={escapeNo}
+          >
+            Still angry 😤
+          </button>
+          <div
+            id="done"
+            style={{
+              minHeight: "40px",
+              marginTop: "15px",
+              fontFamily: "Caveat, cursive",
+              fontSize: "28px",
+              color: "#ffc4d4",
+              whiteSpace: "pre-line",
+            }}
+          >
+            {doneText}
+          </div>
+          <div className="signature">— your Betu</div>
+        </div>
+      </section>
+
+      {/* MODAL */}
+      <div className={`modal ${!modal.open ? "off" : ""}`} id="modal">
+        <button className="close" onClick={closeModal}>
+          ×
+        </button>
+        <div className="modalbox">
+          <div className="big" id="mi">
+            {modal.icon}
+          </div>
+          <h2 id="mt">{modal.title}</h2>
+          <p id="mp">{modal.param}</p>
+          <button
+            className="btn primary"
+            onClick={() => {
+              closeModal();
+              burst(15);
+            }}
+          >
+            Keep it, Bubu ♡
+          </button>
+        </div>
+      </div>
+
+      {/* FLOAT PARTICLES */}
+      <div id="float">
         {floaters.map((f) => (
           <span
             key={f.id}
-            className="float-particle"
+            className="float"
             style={{
               left: f.left,
               fontSize: f.fontSize,
-              animationDuration: f.duration,
+              animationDuration: f.animationDuration,
             }}
           >
             {f.char}
